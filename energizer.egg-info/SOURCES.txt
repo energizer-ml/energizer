@@ -20,6 +20,7 @@ energizer/layers/dropout.py
 energizer/layers/flatten.py
 energizer/layers/linear.py
 energizer/layers/loss.py
+energizer/layers/modulelist.py
 energizer/layers/pool.py
 energizer/layers/relu.py
 energizer/layers/reshape.py

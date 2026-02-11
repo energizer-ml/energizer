@@ -9,7 +9,7 @@ class Sequential(Module):
             self.add_module(str(idx), layer)
 
     def forward(self, x: energizer.Tensor) -> energizer.Tensor:
-        for layer in enumerate(self.layers):
+        for layer in self.layers:
             x = layer(x)
         return x
 

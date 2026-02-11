@@ -194,6 +194,7 @@ class Tensor:
     def T(self) -> 'Tensor':
         return Tensor(self.data.T, requires_grad=self.requires_grad, grad_fn=Function(dv.transpose_backward, [self]), device=self.device)
 
+    @property
     def size(self):
         return self.data.shape
 
@@ -236,7 +237,7 @@ class Tensor:
     @staticmethod
     def randn(*args, device: str = 'cpu', **kwargs):
         if device == 'gpu':
-            data = mx.random.normal(*args, **kwargs)
+            data = mx.random.normal(shape=args, **kwargs)
         else:
             data = np.random.randn(*args, **kwargs)
 
