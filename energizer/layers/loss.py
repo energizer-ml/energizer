@@ -17,3 +17,16 @@ class MSELoss(Module):
 
     def __call__(self, input: Tensor, target: Tensor) -> Tensor:
         return self.forward(input, target)
+
+class CrossEntropyLoss(Module):
+    def __init__(self, size_average: bool = None, reduce: bool = None, reduction: str = 'mean'):
+        super().__init__()
+        self.size_average = size_average
+        self.reduce = reduce
+        self.reduction = reduction
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        return -target * np.log(input)
+
+    def __call__(self, input: Tensor, target: Tensor) -> Tensor:
+        return self.forward(input, target)
