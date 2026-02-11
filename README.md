@@ -13,7 +13,7 @@ Energizer (formerly `energizer`) – custom PyTorch-like library for the Neural 
 ### B. Activation Functions:
 
 - [x] Sigmoid - For binary classification
-- [ ] Tanh - For value estimation (-1 to 1)
+- [x] Tanh - For value estimation (-1 to 1)
 - [x] LeakyReLU - Better than ReLU in some cases
 - [ ] Softmax - For move probability distribution
 

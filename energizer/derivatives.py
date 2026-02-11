@@ -339,3 +339,15 @@ def transpose_backward(tensors: Any, grad_outputs: Any) -> Any:
         except ImportError:
             tensors[0].grad = np.transpose(grad_data)
     return tensors[0].grad.T if hasattr(tensors[0], 'grad') else tensors[0].grad
+
+def tanh_backward(tensors: Any, grad_outputs: Any) -> Any:
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_outputs[0] * (1 - tensors[0].data ** 2)
+        tensors[0].backward(tensors[0].grad)
+    return grad_outputs[0] * (1 - tensors[0].data ** 2)
+
+def softmax_backward(tensors: Any, grad_outputs: Any) -> Any:
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_outputs[0] * (tensors[0].data > 0)
+        tensors[0].backward(tensors[0].grad)
+    return grad_outputs[0] * (tensors[0].data > 0)

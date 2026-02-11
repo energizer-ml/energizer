@@ -38,3 +38,13 @@ def trace(tensor: Tensor) -> Tensor:
     else:
         result = np.trace(tensor.data)
     return Tensor(result, requires_grad=tensor.requires_grad, grad_fn=Function(dv.trace_backward, [tensor]), device=tensor.device)
+
+def tanh(tensor: Tensor) -> Tensor:
+    if tensor.device == 'gpu':
+        return Tensor(mx.tanh(tensor.data), requires_grad=tensor.requires_grad, grad_fn=Function(dv.tanh_backward, [tensor]), device=tensor.device)
+    return Tensor(np.tanh(tensor.data), requires_grad=tensor.requires_grad, grad_fn=Function(dv.tanh_backward, [tensor]), device=tensor.device)
+
+def softmax(tensor: Tensor) -> Tensor:
+    if tensor.device == 'gpu':
+        return Tensor(mx.softmax(tensor.data), requires_grad=tensor.requires_grad, grad_fn=Function(dv.softmax_backward, [tensor]), device=tensor.device)
+    return Tensor(np.softmax(tensor.data), requires_grad=tensor.requires_grad, grad_fn=Function(dv.softmax_backward, [tensor]), device=tensor.device)
