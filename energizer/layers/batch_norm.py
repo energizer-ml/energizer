@@ -1,6 +1,10 @@
-from energizer.neural_network import Module
+from energizer.neural_network import Module, Parameter
 from energizer.tensor import Tensor
 import numpy as np
+try:
+    import mlx.core as mx
+except ImportError:
+    mx = None
 
 class BatchNorm1d(Module):
     def __init__(self, num_features: int, eps: float = 1e-5, momentum: float = 0.1):
@@ -59,8 +63,8 @@ class BatchNorm2d(Module):
         self.eps = eps
         self.momentum = momentum
 
-        self.gamma = Tensor(np.ones(num_features), requires_grad=True)
-        self.beta = Tensor(np.zeros(num_features), requires_grad=True)
+        self.gamma = Parameter(np.ones(num_features), requires_grad=True)
+        self.beta = Parameter(np.zeros(num_features), requires_grad=True)
 
         self.running_mean = np.zeros(num_features)
         self.running_var = np.ones(num_features)
@@ -72,7 +76,6 @@ class BatchNorm2d(Module):
             raise ValueError("BatchNorm2d only supports 4D input tensors")
 
         batch_size, channels, height, width = x.data.shape
- 
 
         if self.training:
             mean = x.data.mean(axis=(0, 2, 3))
@@ -89,14 +92,28 @@ class BatchNorm2d(Module):
             mean_reshaped = self.running_mean.reshape(1, channels, 1, 1)
             var_reshaped = self.running_var.reshape(1, channels, 1, 1)
 
-        x_normalized = (x.data - mean_reshaped) / np.sqrt(var_reshaped + self.eps)
+        x_normalized = (x.data - mean_reshaped) / (var_reshaped + self.eps) ** 0.5
 
         gamma_reshaped = self.gamma.data.reshape(1, channels, 1, 1)
         beta_reshaped = self.beta.data.reshape(1, channels, 1, 1)
 
         result = x_normalized * gamma_reshaped + beta_reshaped
         
-        return Tensor(result, requires_grad=x.requires_grad)
+        return Tensor(result, requires_grad=x.requires_grad, device=x.device)
+
+    def to(self, device: str):
+        super().to(device)
+        if device == 'gpu' and mx is not None:
+            if isinstance(self.running_mean, np.ndarray):
+                self.running_mean = mx.array(self.running_mean)
+            if isinstance(self.running_var, np.ndarray):
+                self.running_var = mx.array(self.running_var)
+        else:
+            if not isinstance(self.running_mean, np.ndarray):
+                self.running_mean = np.array(self.running_mean)
+            if not isinstance(self.running_var, np.ndarray):
+                self.running_var = np.array(self.running_var)
+        return self
 
     def eval(self):
         self.training = False

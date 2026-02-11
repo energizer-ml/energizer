@@ -24,7 +24,7 @@ class Dropout(Module):
         if self.inplace:
             x.data *= mask
             return x
-        return Tensor(x.data * mask, requires_grad=x.requires_grad)
+        return Tensor(x.data * mask, requires_grad=x.requires_grad, device=x.device)
 
     def eval(self):
         self.training = False

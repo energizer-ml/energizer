@@ -121,8 +121,14 @@ class Module:
         np.savez(filepath, **state_dict)
 
     def to(self, device: str):
+        for name, param in self._parameters.items():
+            if param is not None:
+                new_param = param.to(device)
+                param.data = new_param.data
+                param.device = device
         for module in self._modules.values():
             module.to(device)
+        self.device = device
         return self
 
     @classmethod
