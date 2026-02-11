@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "energizer"
+version = "0.1.0"
+description = "A lightweight deep learning library for Apple's Neural Engine."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Florian GRIMA", email = "florian.grima@epitech.eu" },
+]
+keywords = ["deep-learning", "neural-engine", "machine-learning", "mlx", "apple"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy",
+]
+
+[project.optional-dependencies]
+gpu = ["mlx", "mlx-metal"]
+dev = ["pytest", "torch", "torchvision"]
+
+[project.urls]
+Homepage = "https://github.com/fgrimaepitech/energizer"
+Repository = "https://github.com/fgrimaepitech/energizer"
+Issues = "https://github.com/fgrimaepitech/energizer/issues"
+
+[tool.setuptools.packages.find]
+include = ["energizer*"]
+exclude = ["tests*", "src*"]

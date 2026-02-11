@@ -13,3 +13,4 @@ dataset/
 *.png
 *.npz
 src/test_*.py
+__pycache__/

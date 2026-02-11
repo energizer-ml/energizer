@@ -1,0 +1,10 @@
+numpy
+
+[dev]
+pytest
+torch
+torchvision
+
+[gpu]
+mlx
+mlx-metal

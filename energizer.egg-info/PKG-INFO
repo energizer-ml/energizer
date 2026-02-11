@@ -1,0 +1,56 @@
+Metadata-Version: 2.4
+Name: energizer
+Version: 0.1.0
+Summary: A lightweight deep learning library for Apple's Neural Engine.
+Author-email: Florian GRIMA <florian.grima@epitech.eu>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/fgrimaepitech/energizer
+Project-URL: Repository, https://github.com/fgrimaepitech/energizer
+Project-URL: Issues, https://github.com/fgrimaepitech/energizer/issues
+Keywords: deep-learning,neural-engine,machine-learning,mlx,apple
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Provides-Extra: gpu
+Requires-Dist: mlx; extra == "gpu"
+Requires-Dist: mlx-metal; extra == "gpu"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: torch; extra == "dev"
+Requires-Dist: torchvision; extra == "dev"
+
+Energizer (formerly `energizer`) – custom PyTorch-like library for the Neural Engine
+
+## Need to Implement:
+
+### A. Essential Layers:
+
+- [x] Batch Normalization - Critical for stable training (BatchNorm1d, BatchNorm2d)
+- [x] Dropout - For regularization
+- [x] Pooling layers (MaxPool2d, AvgPool2d)
+- [x] Flatten layer - To convert conv outputs to linear inputs
+- [x] Residual blocks - For deeper networks
+
+### B. Activation Functions:
+
+- [x] Sigmoid - For binary classification
+- [ ] Tanh - For value estimation (-1 to 1)
+- [x] LeakyReLU - Better than ReLU in some cases
+- [ ] Softmax - For move probability distribution
+
+### C. Loss Functions:
+
+- [x] MSE Loss - For value prediction
+- [ ] CrossEntropy Loss - For move prediction
+- [ ] Huber Loss - More robust than MSE
+- [ ] Custom chess loss - Combine policy and value loss
