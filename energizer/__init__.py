@@ -1,11 +1,11 @@
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __author__ = "Florian GRIMA"
 __name__ = "energizer"
 __description__ = "A lightweight deep learning library for Apple's Neural Engine."
 __url__ = "https://github.com/fgrimaepitech/energizer"
 __license__ = "MIT"
 __copyright__ = "Copyright 2026 Florian GRIMA"
-__version_info__ = (0, 1, 2)
+__version_info__ = (0, 1, 3)
 __version__ = ".".join(map(str, __version_info__))
 __maintainer__ = "Florian GRIMA"
 __status__ = "Development"
