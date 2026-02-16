@@ -144,11 +144,13 @@ from .layers.convtranspose import ConvTranspose2d
 # ---------------------------------------------------------------------------
 from .layers.relu import ReLU, LeakyReLU
 from .layers.sigmoid import Sigmoid
+from .layers.gelu import GELU
 
 # ---------------------------------------------------------------------------
 # Layers — Normalization
 # ---------------------------------------------------------------------------
 from .layers.batch_norm import BatchNorm1d, BatchNorm2d
+from .layers.layer_norm import LayerNorm
 
 # ---------------------------------------------------------------------------
 # Layers — Pooling
@@ -176,6 +178,16 @@ from .layers.residual import ResidualBlock, BottleneckBlock
 from .layers.autoencoder import AutoEncoder
 
 # ---------------------------------------------------------------------------
+# Layers — Transformer
+# ---------------------------------------------------------------------------
+from .layers.transformer import TransformerEncoderLayer, TransformerEncoder
+
+# ---------------------------------------------------------------------------
 # Loss Functions
 # ---------------------------------------------------------------------------
 from .layers.loss import MSELoss, CrossEntropyLoss
+
+# ---------------------------------------------------------------------------
+# Layers — Embedding
+# ---------------------------------------------------------------------------
+from .layers.embedding import Embedding

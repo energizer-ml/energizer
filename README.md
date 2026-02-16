@@ -20,6 +20,6 @@ Energizer (formerly `energizer`) – custom PyTorch-like library for the Neural 
 ### C. Loss Functions:
 
 - [x] MSE Loss - For value prediction
-- [ ] CrossEntropy Loss - For move prediction
+- [x] CrossEntropy Loss - For move prediction
 - [ ] Huber Loss - More robust than MSE
 - [ ] Custom chess loss - Combine policy and value loss

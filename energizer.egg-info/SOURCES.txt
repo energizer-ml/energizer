@@ -17,6 +17,7 @@ energizer/layers/batch_norm.py
 energizer/layers/conv.py
 energizer/layers/convtranspose.py
 energizer/layers/dropout.py
+energizer/layers/embedding.py
 energizer/layers/flatten.py
 energizer/layers/linear.py
 energizer/layers/loss.py

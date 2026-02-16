@@ -15,12 +15,13 @@ class Module:
         self._parameters = {}
         self._modules = {}
         self.device = device
+        self.training = False
 
     def forward(self, x):
         raise NotImplementedError
 
-    def __call__(self, x):
-        return self.forward(x)
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
     def __setattr__(self, name, value):
         if isinstance(value, Parameter):

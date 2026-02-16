@@ -234,6 +234,13 @@ class Tensor:
     def view(self, shape: tuple) -> 'Tensor':
         return self.reshape(shape)
 
+    def transpose(self, dim0: int, dim1: int) -> 'Tensor':
+        if self.device == 'gpu':
+            result = mx.swapaxes(self.data, dim0, dim1)
+        else:
+            result = np.swapaxes(self.data, dim0, dim1)
+        return Tensor(result, requires_grad=self.requires_grad, grad_fn=Function(dv.transpose_backward, [self, dim0, dim1]), device=self.device)
+
     @staticmethod
     def randn(*args, device: str = 'cpu', **kwargs):
         if device == 'gpu':

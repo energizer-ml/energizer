@@ -351,3 +351,18 @@ def softmax_backward(tensors: Any, grad_outputs: Any) -> Any:
         tensors[0].grad = grad_outputs[0] * (tensors[0].data > 0)
         tensors[0].backward(tensors[0].grad)
     return grad_outputs[0] * (tensors[0].data > 0)
+
+def transpose_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = grad_outputs[0].data if isinstance(grad_outputs[0], ts.Tensor) else grad_outputs[0]
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_data.T
+    else:
+        try:
+            import mlx.core as mx
+            if isinstance(grad_data, mx.array):
+                tensors[0].grad = mx.transpose(grad_data)
+            else:
+                tensors[0].grad = np.transpose(grad_data)
+        except ImportError:
+            tensors[0].grad = np.transpose(grad_data)
+    return tensors[0].grad.T if hasattr(tensors[0], 'grad') else tensors[0].grad
