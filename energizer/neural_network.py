@@ -25,6 +25,8 @@ class Module:
     def __setattr__(self, name, value):
         if isinstance(value, Parameter):
             self._parameters[name] = value
+        if isinstance(value, Module):
+            self._modules[name] = value
         self.__dict__[name] = value
 
     def backward(self, x):
