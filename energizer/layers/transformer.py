@@ -54,8 +54,10 @@ class MultiheadAttention(Module):
                 scores = np.where(mask, -np.inf, scores)
 
         if self.device == "gpu":
-            attn_weights = mx.softmax(scores, dim=-1)
-            attn_weights = self.dropout_layer(Tensor(attn_weights)).data
+            attn_weights = mx.softmax(scores, axis=-1)
+            attn_weights = self.dropout_layer(Tensor(attn_weights, device="gpu")).data
+            if not isinstance(attn_weights, mx.array):
+                attn_weights = mx.array(attn_weights)
         else:
             exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
             attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
