@@ -1,5 +1,3 @@
-theme: jekyll-theme-cayman
-
 title: "Energizer"
 description: "A lightweight PyTorch-like deep learning library for Apple's Neural Engine — built on MLX and NumPy."
 
