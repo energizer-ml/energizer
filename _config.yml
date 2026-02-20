@@ -1,0 +1,25 @@
+theme: jekyll-theme-cayman
+
+title: "Energizer"
+description: "A lightweight PyTorch-like deep learning library for Apple's Neural Engine — built on MLX and NumPy."
+
+author:
+  name: "Florian GRIMA"
+  email: "florian.grima@epitech.eu"
+
+url: "https://fgrimaepitech.github.io"
+baseurl: "/energizer"
+
+github_username: fgrimaepitech
+github_repo: energizer
+
+show_downloads: true
+
+plugins:
+  - jekyll-seo-tag
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
