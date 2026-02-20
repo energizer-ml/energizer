@@ -3,22 +3,35 @@ from energizer.neural_network import Module, Parameter
 import numpy as np
 import mlx.core as mx
 
+
 class Linear(Module):
-    def __init__(self, in_features, out_features, bias=True, device: str = 'cpu'):
+    def __init__(self, in_features, out_features, bias=True, device: str = "cpu"):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.bias = bias
         self.device = device
-        if device == 'gpu':
-            self.weight = Parameter(mx.random.normal(shape=(out_features, in_features)) * 0.01, requires_grad=True, device=device)
+        if device == "gpu":
+            self.weight = Parameter(
+                mx.random.normal(shape=(out_features, in_features)) * 0.01,
+                requires_grad=True,
+                device=device,
+            )
         else:
-            self.weight = Parameter(np.random.randn(out_features, in_features) * 0.01, requires_grad=True, device=device)
+            self.weight = Parameter(
+                np.random.randn(out_features, in_features) * 0.01,
+                requires_grad=True,
+                device=device,
+            )
         if bias:
-            if device == 'gpu':
-                self.bias = Parameter(mx.zeros(out_features), requires_grad=True, device=device)
+            if device == "gpu":
+                self.bias = Parameter(
+                    mx.zeros(out_features), requires_grad=True, device=device
+                )
             else:
-                self.bias = Parameter(np.zeros(out_features), requires_grad=True, device=device)
+                self.bias = Parameter(
+                    np.zeros(out_features), requires_grad=True, device=device
+                )
         else:
             self.bias = None
 

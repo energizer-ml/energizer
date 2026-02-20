@@ -2,6 +2,7 @@ from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import numpy as np
 
+
 class Dropout(Module):
     def __init__(self, p: float = 0.5, inplace: bool = False):
         super().__init__()
@@ -15,7 +16,7 @@ class Dropout(Module):
     def forward(self, x: Tensor) -> Tensor:
         if not self.training or self.p == 0:
             return x
-        
+
         scale = 1.0 / (1.0 - self.p)
         mask = (np.random.rand(*x.data.shape) > self.p).astype(np.float32) * scale
 
@@ -31,4 +32,3 @@ class Dropout(Module):
 
     def train(self):
         self.training = True
-

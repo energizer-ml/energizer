@@ -43,3 +43,17 @@ Issues = "https://github.com/fgrimaepitech/energizer/issues"
 [tool.setuptools.packages.find]
 include = ["energizer*"]
 exclude = ["tests*", "src*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | __pycache__
+  | \.eggs
+  | .*\.egg-info
+)/
+'''

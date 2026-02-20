@@ -5,12 +5,13 @@ import mlx.core as mx
 from energizer.function import Function
 import energizer.derivatives as dv
 
+
 class Sigmoid(Module):
-    def __init__(self, device: str = 'cpu'):
+    def __init__(self, device: str = "cpu"):
         super().__init__()
 
     def forward(self, x: Tensor) -> Tensor:
-        if x.device == 'gpu':
+        if x.device == "gpu":
             y = 1 / (1 + mx.exp(-x.data))
         else:
             y = 1 / (1 + np.exp(-x.data))

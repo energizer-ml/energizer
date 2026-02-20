@@ -4,6 +4,7 @@ from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import numpy as np
 
+
 class ResidualBlock(Module):
     def __init__(self, channels: int):
         super().__init__()
@@ -27,17 +28,30 @@ class BottleneckBlock(Module):
         self.expansion = 4
         reduce_channels = out_channels // self.expansion
 
-        self.conv1 = energizer.Conv2d(in_channels, reduce_channels, kernel_size=1, bias=False)
+        self.conv1 = energizer.Conv2d(
+            in_channels, reduce_channels, kernel_size=1, bias=False
+        )
         self.bn1 = energizer.BatchNorm2d(reduce_channels)
 
-        self.conv2 = energizer.Conv2d(reduce_channels, reduce_channels, kernel_size=3, padding=1, stride=stride, bias=False)
+        self.conv2 = energizer.Conv2d(
+            reduce_channels,
+            reduce_channels,
+            kernel_size=3,
+            padding=1,
+            stride=stride,
+            bias=False,
+        )
         self.bn2 = energizer.BatchNorm2d(reduce_channels)
 
-        self.conv3 = energizer.Conv2d(reduce_channels, out_channels, kernel_size=1, bias=False)
+        self.conv3 = energizer.Conv2d(
+            reduce_channels, out_channels, kernel_size=1, bias=False
+        )
         self.bn3 = energizer.BatchNorm2d(out_channels)
 
         if stride != 1 or in_channels != out_channels:
-            self.shortcut = energizer.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
+            self.shortcut = energizer.Conv2d(
+                in_channels, out_channels, kernel_size=1, stride=stride
+            )
             self.shortcut_bn = energizer.BatchNorm2d(out_channels)
         else:
             self.shortcut = None

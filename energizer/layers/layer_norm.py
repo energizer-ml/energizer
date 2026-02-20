@@ -3,18 +3,29 @@ from energizer.tensor import Tensor
 import numpy as np
 import mlx.core as mx
 
+
 class LayerNorm(Module):
-    def __init__(self, normalized_shape: int, eps: float = 1e-5, elementwise_affine: bool = True, device: str = 'cpu'):
+    def __init__(
+        self,
+        normalized_shape: int,
+        eps: float = 1e-5,
+        elementwise_affine: bool = True,
+        device: str = "cpu",
+    ):
         super().__init__(device=device)
         self.normalized_shape = normalized_shape
         self.eps = eps
         self.elementwise_affine = elementwise_affine
 
-        self.gamma = Tensor(np.ones(normalized_shape), requires_grad=True, device=device)
-        self.beta = Tensor(np.zeros(normalized_shape), requires_grad=True, device=device)
+        self.gamma = Tensor(
+            np.ones(normalized_shape), requires_grad=True, device=device
+        )
+        self.beta = Tensor(
+            np.zeros(normalized_shape), requires_grad=True, device=device
+        )
 
     def forward(self, x: Tensor) -> Tensor:
-        if self.device == 'gpu':
+        if self.device == "gpu":
             mean = mx.mean(x.data, axis=-1, keepdims=True)
             var = mx.var(x.data, axis=-1, keepdims=True)
         else:

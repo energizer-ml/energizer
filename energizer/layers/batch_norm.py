@@ -1,10 +1,12 @@
 from energizer.neural_network import Module, Parameter
 from energizer.tensor import Tensor
 import numpy as np
+
 try:
     import mlx.core as mx
 except ImportError:
     mx = None
+
 
 class BatchNorm1d(Module):
     def __init__(self, num_features: int, eps: float = 1e-5, momentum: float = 0.1):
@@ -30,13 +32,19 @@ class BatchNorm1d(Module):
                 mean = x.data.mean(axis=(0, 2))
                 var = x.data.var(axis=(0, 2))
 
-            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean
-            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var
-            
+            self.running_mean = (
+                1 - self.momentum
+            ) * self.running_mean + self.momentum * mean
+            self.running_var = (
+                1 - self.momentum
+            ) * self.running_var + self.momentum * var
+
             x_normalized = (x.data - mean) / np.sqrt(var + self.eps)
-        
+
         else:
-            x_normalized = (x.data - self.running_mean) / np.sqrt(self.running_var + self.eps)
+            x_normalized = (x.data - self.running_mean) / np.sqrt(
+                self.running_var + self.eps
+            )
 
         if len(x.data.shape) == 2:
             result = x_normalized * self.gamma + self.beta
@@ -55,6 +63,7 @@ class BatchNorm1d(Module):
 
     def parameters(self):
         return [self.gamma, self.beta]
+
 
 class BatchNorm2d(Module):
     def __init__(self, num_features: int, eps: float = 1e-5, momentum: float = 0.1):
@@ -81,13 +90,17 @@ class BatchNorm2d(Module):
             mean = x.data.mean(axis=(0, 2, 3))
             var = x.data.var(axis=(0, 2, 3))
 
-            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean
-            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var
+            self.running_mean = (
+                1 - self.momentum
+            ) * self.running_mean + self.momentum * mean
+            self.running_var = (
+                1 - self.momentum
+            ) * self.running_var + self.momentum * var
 
             # reshape for broadcasting
             mean_reshaped = mean.reshape(1, channels, 1, 1)
             var_reshaped = var.reshape(1, channels, 1, 1)
-            
+
         else:
             mean_reshaped = self.running_mean.reshape(1, channels, 1, 1)
             var_reshaped = self.running_var.reshape(1, channels, 1, 1)
@@ -98,12 +111,12 @@ class BatchNorm2d(Module):
         beta_reshaped = self.beta.data.reshape(1, channels, 1, 1)
 
         result = x_normalized * gamma_reshaped + beta_reshaped
-        
+
         return Tensor(result, requires_grad=x.requires_grad, device=x.device)
 
     def to(self, device: str):
         super().to(device)
-        if device == 'gpu' and mx is not None:
+        if device == "gpu" and mx is not None:
             if isinstance(self.running_mean, np.ndarray):
                 self.running_mean = mx.array(self.running_mean)
             if isinstance(self.running_var, np.ndarray):
@@ -120,4 +133,3 @@ class BatchNorm2d(Module):
 
     def train(self):
         self.training = True
-            

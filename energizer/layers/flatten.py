@@ -4,6 +4,7 @@ from energizer.function import Function
 import energizer.derivatives as dv
 import numpy as np
 
+
 class Flatten(Module):
     def __init__(self, start_dim: int = 1, end_dim: int = -1):
         super().__init__()
@@ -19,8 +20,8 @@ class Flatten(Module):
 
         flattened = x.data.reshape(batch_size, -1)
         return Tensor(
-            flattened, 
-            requires_grad=x.requires_grad, 
+            flattened,
+            requires_grad=x.requires_grad,
             grad_fn=Function(dv.reshape_backward, [x]) if x.requires_grad else None,
-            device=x.device
+            device=x.device,
         )

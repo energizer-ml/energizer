@@ -1,9 +1,9 @@
-
 from ast import Dict, List
 from typing import Callable, Any
 
 from energizer.tensor import Tensor
 import numpy as np
+
 try:
     import mlx.core as mx
 except ImportError:
@@ -11,7 +11,7 @@ except ImportError:
 
 
 class Module:
-    def __init__(self, device: str = 'cpu'):
+    def __init__(self, device: str = "cpu"):
         self._parameters = {}
         self._modules = {}
         self.device = device
@@ -41,11 +41,11 @@ class Module:
 
     def eval(self):
         return self.train(False)
-    
+
     def children(self):
         for name, module in self._modules.items():
             yield module
-    
+
     def modules(self):
         yield self
         for child in self.children():
@@ -53,7 +53,7 @@ class Module:
 
     def add_parameter(self, name, param):
         self._parameters[name] = param
-    
+
     def add_module(self, name, module):
         self._modules[name] = module
 
@@ -102,7 +102,9 @@ class Module:
             # Restore to the target device
             if device == "gpu":
                 if mx is None:
-                    raise RuntimeError("Cannot load GPU weights because mlx is not available")
+                    raise RuntimeError(
+                        "Cannot load GPU weights because mlx is not available"
+                    )
                 return mx.array(arr_np)
             return np.array(arr_np)
 
@@ -111,15 +113,18 @@ class Module:
                 if param is not None:
                     key = f"{prefix}{name}"
                     if key in state_dict:
-                        param.data = _from_numpy(state_dict[key], getattr(param, "device", "cpu"))
-            
+                        param.data = _from_numpy(
+                            state_dict[key], getattr(param, "device", "cpu")
+                        )
+
             for name, submodule in module._modules.items():
                 load_params(submodule, f"{prefix}{name}.")
-        
+
         load_params(self)
 
     def save(self, filepath):
         import numpy as np
+
         state_dict = self.state_dict()
         np.savez(filepath, **state_dict)
 
@@ -137,14 +142,16 @@ class Module:
     @classmethod
     def load(cls, filepath):
         import numpy as np
+
         model = cls()
         data = np.load(filepath, allow_pickle=True)
         state_dict = {key: data[key] for key in data.keys()}
-        
+
         model.load_state_dict(state_dict)
         print(f"Model loaded from {filepath}")
-        
+
         return model
+
 
 class Optimizer:
     def __init__(self, params, defaults: Dict[str, Any]):
@@ -155,27 +162,29 @@ class Optimizer:
         self._hook_post_hooks: List[Callable] = []
 
         if isinstance(params, (list, tuple)) and len(params) > 0:
-            if isinstance(params[0], dict) and 'params' in params[0]:
+            if isinstance(params[0], dict) and "params" in params[0]:
                 for param_group in params:
                     merged_group = {**defaults, **param_group}
                     self.add_param_group(merged_group)
             else:
                 for param in params:
-                    self.add_param_group({**defaults, 'params': param})
+                    self.add_param_group({**defaults, "params": param})
         else:
             if isinstance(params, (list, tuple)) and len(params) == 0:
-                self.add_param_group({**defaults, 'params': []})
+                self.add_param_group({**defaults, "params": []})
             else:
-                self.add_param_group({**defaults, 'params': params})
+                self.add_param_group({**defaults, "params": params})
 
     def add_param_group(self, param_group: dict):
         self.param_groups.append(param_group)
 
     def load_state_dict(self, state_dict: dict):
-        self.param_groups = state_dict['param_groups']
-        self.state = state_dict['state']
+        self.param_groups = state_dict["param_groups"]
+        self.state = state_dict["state"]
 
-    def register_load_state_dict_post_hook(self, hook: Callable, preprend: bool = False):
+    def register_load_state_dict_post_hook(
+        self, hook: Callable, preprend: bool = False
+    ):
         if preprend:
             self.load_state_dict_post_hooks.insert(0, hook)
         else:
@@ -206,26 +215,24 @@ class Optimizer:
         self.step_pre_hooks.append(hook)
 
     def state_dict(self) -> dict:
-        return {
-            'state': self.state,
-            'param_groups': self.param_groups
-        }
+        return {"state": self.state, "param_groups": self.param_groups}
 
     def step(self, closure: Callable = None):
         if closure is not None:
             closure()
         else:
             for param_group in self.param_groups:
-                for param in param_group['params']:
+                for param in param_group["params"]:
                     if param.grad is not None:
-                        param.data = param.data - param.grad * param_group['lr']
+                        param.data = param.data - param.grad * param_group["lr"]
 
     def zero_grad(self):
         for param_group in self.param_groups:
-            for param in param_group['params']:
+            for param in param_group["params"]:
                 # Gradients can be numpy arrays or Tensors. Simplest: set to None
                 # and let backward() recreate them fresh.
                 param.grad = None
+
 
 class Parameter(Tensor):
     pass

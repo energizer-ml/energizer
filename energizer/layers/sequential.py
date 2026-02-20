@@ -1,6 +1,7 @@
 from energizer.neural_network import Module
 import energizer
 
+
 class Sequential(Module):
     def __init__(self, *layers):
         super().__init__()

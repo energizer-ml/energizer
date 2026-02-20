@@ -2,6 +2,7 @@ from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import numpy as np
 
+
 class Trim(Module):
     def __init__(self, start: int, end: int):
         super().__init__()

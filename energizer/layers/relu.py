@@ -5,6 +5,7 @@ import numpy as np
 from energizer.tensor import Tensor
 from energizer.functionnal import max
 
+
 class ReLU(Module):
     def __init__(self):
         super().__init__()
@@ -14,6 +15,7 @@ class ReLU(Module):
 
     def extra_repr(self):
         return ""
+
 
 class LeakyReLU(Module):
     def __init__(self, negative_slope: float = 0.01, inplace: bool = False):
