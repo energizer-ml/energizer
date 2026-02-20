@@ -2,17 +2,172 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Energizer</title>
     <style>
         body {
-            background-color: white; /* or black */
-            color: black; /* or white */
-            font-family: sans-serif;
-            margin: 2rem;
+            background-color: #ffffff;
+            color: #000000;
+            font-family: monospace; 
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            font-weight: normal;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
+            margin-top: 40px;
+        }
+        a {
+            color: #0000ee;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        a:hover {
+            text-decoration: underline;
+            background-color: #000;
+            color: #fff;
+        }
+        .status-bar {
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        .badge {
+            border: 1px solid #000;
+            padding: 2px 6px;
+            margin-right: 8px;
+            display: inline-block;
+        }
+        ul {
+            list-style-type: square;
+        }
+        .release-item {
+            margin-bottom: 15px;
+        }
+        .release-body {
+            margin-top: 5px;
+            font-size: 0.9em;
+            color: #333;
+            white-space: pre-wrap;
+        }
+        .toggle-btn {
+            display: inline-block;
+            margin-top: 5px;
+            font-size: 0.9em;
         }
     </style>
 </head>
 <body>
-    Energizer - A lightweight PyTorch-like deep learning library.
+
+    <h1>energizer</h1>
+
+    <div class="status-bar">
+        <span class="badge">python: >=3.9</span>
+        <span class="badge">pypi: v0.1.0</span>
+        <span class="badge">build: passing</span>
+        <span class="badge">linter: passing</span>
+    </div>
+
+    <p>A lightweight PyTorch-like deep learning library for Apple's Neural Engine — built on MLX and NumPy.</p>
+
+    <h2>author</h2>
+    <p>Florian GRIMA &lt;<a href="mailto:florian.grima@epitech.eu">florian.grima@epitech.eu</a>&gt;<br>
+    GitHub: <a href="https://github.com/fgrimaepitech">@fgrimaepitech</a></p>
+
+    <h2>dependencies</h2>
+    <ul>
+        <li><code>mlx</code> - Apple's array framework for machine learning</li>
+        <li><code>numpy</code> - The fundamental package for scientific computing</li>
+    </ul>
+
+    <h2>releases & changelog</h2>
+    <ul id="releases-list">
+        <li><em>Loading releases from GitHub...</em></li>
+    </ul>
+
+    <h2>links</h2>
+    <p>
+        [ <a href="https://github.com/fgrimaepitech/energizer">repository</a> ] 
+        [ <a href="https://github.com/fgrimaepitech/energizer/issues">issues</a> ]
+    </p>
+
+    <script>
+        function escapeHTML(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function toggleChangelog(event, btn) {
+            event.preventDefault();
+            const parent = btn.parentElement;
+            const preview = parent.querySelector('.preview');
+            const full = parent.querySelector('.full');
+
+            if (full.style.display === 'none') {
+                full.style.display = 'inline';
+                preview.style.display = 'none';
+                btn.innerText = '[ - show less ]';
+            } else {
+                full.style.display = 'none';
+                preview.style.display = 'inline';
+                btn.innerText = '[ + read more ]';
+            }
+        }
+
+        async function fetchReleases() {
+            const repo = "fgrimaepitech/energizer";
+            const url = `https://api.github.com/repos/${repo}/releases`;
+            const list = document.getElementById("releases-list");
+
+            try {
+                const response = await fetch(url);
+                const releases = await response.json();
+
+                if (!Array.isArray(releases)) {
+                    console.error("GitHub API Error:", releases.message);
+                    list.innerHTML = `<li><em>GitHub API limit reached. Please try again in an hour.</em></li>`;
+                    return;
+                }
+
+                list.innerHTML = ""; 
+
+                if (releases.length === 0) {
+                    list.innerHTML = "<li>No official releases yet. Check the repository for recent commits.</li>";
+                    return;
+                }
+
+                releases.slice(0, 5).forEach(release => {
+                    const rawDate = release.published_at || release.created_at;
+                    const date = rawDate ? new Date(rawDate).toISOString().split('T')[0] : 'Draft';
+                    
+                    const fullText = escapeHTML((release.body || "No release notes provided.").trim());
+                    const maxLength = 120; 
+                    
+                    let contentHTML = "";
+
+                    if (fullText.length > maxLength) {
+                        const shortText = fullText.substring(0, maxLength) + "...";
+                        
+                        contentHTML = `<span class="preview">${shortText}</span><span class="full" style="display: none;">${fullText}</span><br><br><a class="toggle-btn" onclick="toggleChangelog(event, this)">[ + read more ]</a>`;
+                    } else {
+                        contentHTML = `<span>${fullText}</span>`;
+                    }
+                    
+                    const item = document.createElement("li");
+                    item.className = "release-item";
+                    
+                    item.innerHTML = `<strong><a href="${release.html_url}" target="_blank">${release.tag_name}</a></strong> — <em>${date}</em><div class="release-body">${contentHTML}</div>`;
+                    
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                list.innerHTML = "<li><em>Error loading releases. Check the developer console.</em></li>";
+            }
+        }
+
+        fetchReleases();
+    </script>
 </body>
 </html>
