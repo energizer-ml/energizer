@@ -68,7 +68,7 @@ def mul_backward(tensors: Any, grad_outputs: Any) -> Any:
                     else other_data
                 )
             )
-            tensors[0].grad = np.array(grad_mx * other_mx)
+            tensors[0].grad = grad_mx * other_mx
         else:
             tensors[0].grad = grad_data * other_data
         tensors[0].backward(tensors[0].grad)
@@ -87,7 +87,7 @@ def mul_backward(tensors: Any, grad_outputs: Any) -> Any:
                     else other_data
                 )
             )
-            tensors[1].grad = np.array(grad_mx * other_mx)  # Store as numpy for .grad
+            tensors[1].grad = grad_mx * other_mx
         else:
             tensors[1].grad = grad_data * other_data
         tensors[1].backward(tensors[1].grad)
@@ -158,25 +158,30 @@ def neg_backward(tensors: Any, grad_outputs: Any) -> Any:
 
 
 def truediv_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
     is_reverse_div = isinstance(tensors[0], (int, float)) and isinstance(
         tensors[1], ts.Tensor
     )
 
     if is_reverse_div:
         if isinstance(tensors[1], ts.Tensor) and tensors[1].requires_grad:
-            tensors[1].grad = -grad_outputs[0] * tensors[0] / (tensors[1].data ** 2)
+            tensors[1].grad = -grad_data * tensors[0] / (tensors[1].data ** 2)
             tensors[1].backward(tensors[1].grad)
-        return grad_outputs[0]
+        return grad_data
 
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = grad_outputs[0] / (
+        tensors[0].grad = grad_data / (
             tensors[1] if isinstance(tensors[1], (int, float)) else tensors[1].data
         )
         tensors[0].backward(tensors[0].grad)
     if isinstance(tensors[1], ts.Tensor) and tensors[1].requires_grad:
-        tensors[1].grad = -grad_outputs[0] * tensors[0].data / (tensors[1].data ** 2)
+        tensors[1].grad = -grad_data * tensors[0].data / (tensors[1].data ** 2)
         tensors[1].backward(tensors[1].grad)
-    return grad_outputs[0]
+    return grad_data
 
 
 def matmul_backward(tensors: Any, grad_outputs: Any) -> Any:
@@ -207,19 +212,27 @@ def matmul_backward(tensors: Any, grad_outputs: Any) -> Any:
 
 
 def pow_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = (
-            grad_outputs[0] * tensors[1] * (tensors[0].data ** (tensors[1] - 1))
-        )
+        tensors[0].grad = grad_data * tensors[1] * (tensors[0].data ** (tensors[1] - 1))
         tensors[0].backward(tensors[0].grad)
-    return grad_outputs[0] * tensors[1] * (tensors[0].data ** (tensors[1] - 1))
+    return grad_data * tensors[1] * (tensors[0].data ** (tensors[1] - 1))
 
 
 def max_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = grad_outputs[0] * (tensors[0].data > tensors[1])
+        tensors[0].grad = grad_data * (tensors[0].data > tensors[1])
         tensors[0].backward(tensors[0].grad)
-    return grad_outputs[0] * (tensors[0].data > tensors[1])
+    return grad_data * (tensors[0].data > tensors[1])
 
 
 def sum_backward(tensors: Any, grad_outputs: Any) -> Any:
@@ -230,9 +243,14 @@ def sum_backward(tensors: Any, grad_outputs: Any) -> Any:
     )
 
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        if not isinstance(grad_data, np.ndarray):
-            grad_data = np.array(grad_data)
-        tensors[0].grad = np.broadcast_to(grad_data, tensors[0].data.shape).copy()
+        shape = tensors[0].data.shape
+        if mx and isinstance(tensors[0].data, mx.array):
+            g = grad_data if isinstance(grad_data, mx.array) else mx.array(grad_data)
+            tensors[0].grad = mx.broadcast_to(g, shape)
+        else:
+            if not isinstance(grad_data, np.ndarray):
+                grad_data = np.array(grad_data)
+            tensors[0].grad = np.broadcast_to(grad_data, shape).copy()
         tensors[0].backward(tensors[0].grad)
     return grad_data
 
@@ -244,9 +262,15 @@ def mean_backward(tensors: Any, grad_outputs: Any) -> Any:
         else grad_outputs[0]
     )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = np.broadcast_to(
-            grad_data / tensors[0].data.size, tensors[0].data.shape
-        ).copy()
+        n = tensors[0].data.size
+        shape = tensors[0].data.shape
+        if mx and isinstance(tensors[0].data, mx.array):
+            g = grad_data if isinstance(grad_data, mx.array) else mx.array(grad_data)
+            tensors[0].grad = mx.broadcast_to(g / n, shape)
+        else:
+            if not isinstance(grad_data, np.ndarray):
+                grad_data = np.array(grad_data)
+            tensors[0].grad = np.broadcast_to(grad_data / n, shape).copy()
         tensors[0].backward(tensors[0].grad)
     return grad_data / tensors[0].data.size
 
@@ -295,10 +319,19 @@ def as_strided_backward(tensors: Any, grad_outputs: Any) -> Any:
 
 
 def trace_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = np.trace(grad_outputs[0])
+        n = min(tensors[0].data.shape[-2:])
+        if mx and isinstance(tensors[0].data, mx.array):
+            tensors[0].grad = mx.eye(n) * grad_data
+        else:
+            tensors[0].grad = np.eye(n) * np.asarray(grad_data)
         tensors[0].backward(tensors[0].grad)
-    return np.trace(grad_outputs[0])
+    return grad_data
 
 
 def conv1d_backward(
@@ -414,25 +447,59 @@ def reshape_backward(tensors: Any, grad_outputs: Any) -> Any:
 
 
 def getitem_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = np.zeros_like(tensors[0].data)
-        tensors[0].grad[tensors[1]] = grad_outputs[0]
+        if mx and isinstance(tensors[0].data, mx.array):
+            g = np.zeros(tensors[0].data.shape, dtype=np.float32)
+            g[tensors[1]] = np.array(grad_data)
+            tensors[0].grad = mx.array(g)
+        else:
+            tensors[0].grad = np.zeros_like(tensors[0].data)
+            tensors[0].grad[tensors[1]] = grad_data
         tensors[0].backward(tensors[0].grad)
+    if mx and isinstance(tensors[0].data, mx.array):
+        return mx.zeros_like(tensors[0].data)
     return np.zeros_like(tensors[0].data)
 
 
 def setitem_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad[tensors[1]] = grad_outputs[0]
+        if tensors[0].grad is None:
+            if mx and isinstance(tensors[0].data, mx.array):
+                tensors[0].grad = mx.zeros_like(tensors[0].data)
+            else:
+                tensors[0].grad = np.zeros_like(tensors[0].data)
+        if mx and isinstance(tensors[0].grad, mx.array):
+            g = np.array(tensors[0].grad)
+            g[tensors[1]] = np.array(grad_data)
+            tensors[0].grad = mx.array(g)
+        else:
+            tensors[0].grad[tensors[1]] = grad_data
         tensors[0].backward(tensors[0].grad)
+    if mx and isinstance(tensors[0].data, mx.array):
+        return mx.zeros_like(tensors[0].data)
     return np.zeros_like(tensors[0].data)
 
 
 def item_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = grad_outputs[0]
+        tensors[0].grad = grad_data
         tensors[0].backward(tensors[0].grad)
-    return grad_outputs[0]
+    return grad_data
 
 
 def transpose_backward(tensors: Any, grad_outputs: Any) -> Any:
@@ -442,50 +509,178 @@ def transpose_backward(tensors: Any, grad_outputs: Any) -> Any:
         else grad_outputs[0]
     )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = grad_data.T
-    else:
-        try:
-            import mlx.core as mx
-
-            if isinstance(grad_data, mx.array):
+        if len(tensors) == 3:
+            dim0, dim1 = tensors[1], tensors[2]
+            if mx and isinstance(grad_data, mx.array):
+                tensors[0].grad = mx.swapaxes(grad_data, dim0, dim1)
+            else:
+                tensors[0].grad = np.swapaxes(grad_data, dim0, dim1)
+        else:
+            if mx and isinstance(grad_data, mx.array):
                 tensors[0].grad = mx.transpose(grad_data)
             else:
-                tensors[0].grad = np.transpose(grad_data)
-        except ImportError:
-            tensors[0].grad = np.transpose(grad_data)
-    return tensors[0].grad.T if hasattr(tensors[0], "grad") else tensors[0].grad
+                tensors[0].grad = grad_data.T
+        tensors[0].backward(tensors[0].grad)
+
+    if len(tensors) == 3:
+        dim0, dim1 = tensors[1], tensors[2]
+        if mx and isinstance(grad_data, mx.array):
+            return mx.swapaxes(grad_data, dim0, dim1)
+        return np.swapaxes(grad_data, dim0, dim1)
+    if mx and isinstance(grad_data, mx.array):
+        return mx.transpose(grad_data)
+    return grad_data.T
 
 
 def tanh_backward(tensors: Any, grad_outputs: Any) -> Any:
-    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = grad_outputs[0] * (1 - tensors[0].data ** 2)
-        tensors[0].backward(tensors[0].grad)
-    return grad_outputs[0] * (1 - tensors[0].data ** 2)
-
-
-def softmax_backward(tensors: Any, grad_outputs: Any) -> Any:
-    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = grad_outputs[0] * (tensors[0].data > 0)
-        tensors[0].backward(tensors[0].grad)
-    return grad_outputs[0] * (tensors[0].data > 0)
-
-
-def transpose_backward(tensors: Any, grad_outputs: Any) -> Any:
     grad_data = (
         grad_outputs[0].data
         if isinstance(grad_outputs[0], ts.Tensor)
         else grad_outputs[0]
     )
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
-        tensors[0].grad = grad_data.T
-    else:
-        try:
-            import mlx.core as mx
+        tensors[0].grad = grad_data * (1 - tensors[0].data ** 2)
+        tensors[0].backward(tensors[0].grad)
+    return grad_data * (1 - tensors[0].data ** 2)
 
-            if isinstance(grad_data, mx.array):
-                tensors[0].grad = mx.transpose(grad_data)
-            else:
-                tensors[0].grad = np.transpose(grad_data)
-        except ImportError:
-            tensors[0].grad = np.transpose(grad_data)
-    return tensors[0].grad.T if hasattr(tensors[0], "grad") else tensors[0].grad
+
+def softmax_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    x_data = tensors[0].data if isinstance(tensors[0], ts.Tensor) else tensors[0]
+
+    if mx and isinstance(x_data, mx.array):
+        s = mx.softmax(x_data, axis=-1)
+        g = grad_data if isinstance(grad_data, mx.array) else mx.array(grad_data)
+        grad_x = s * (g - mx.sum(g * s, axis=-1, keepdims=True))
+    else:
+        if not isinstance(x_data, np.ndarray):
+            x_data = np.array(x_data)
+        e_x = np.exp(x_data - x_data.max(axis=-1, keepdims=True))
+        s = e_x / e_x.sum(axis=-1, keepdims=True)
+        g = grad_data if isinstance(grad_data, np.ndarray) else np.array(grad_data)
+        grad_x = s * (g - (g * s).sum(axis=-1, keepdims=True))
+
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_x
+        tensors[0].backward(tensors[0].grad)
+    return grad_x
+
+
+def gelu_backward(tensors: Any, grad_outputs: Any) -> Any:
+    """
+    GELU(x) = 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x³)))
+
+    d(GELU)/dx = 0.5 * (1 + tanh(t)) + 0.5 * x * (1 − tanh(t)²) * t'
+    where  t  = sqrt(2/π) * (x + 0.044715 * x³)
+    and    t' = sqrt(2/π) * (1 + 3 * 0.044715 * x²)
+    """
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    x_data = tensors[0].data if isinstance(tensors[0], ts.Tensor) else tensors[0]
+
+    if mx and isinstance(x_data, mx.array):
+        g = grad_data if isinstance(grad_data, mx.array) else mx.array(grad_data)
+        c = mx.array(np.sqrt(2.0 / np.pi))
+        t       = c * (x_data + 0.044715 * mx.power(x_data, 3))
+        tanh_t  = mx.tanh(t)
+        t_prime = c * (1.0 + 3.0 * 0.044715 * x_data ** 2)
+        grad_x  = g * (0.5 * (1.0 + tanh_t) + 0.5 * x_data * (1.0 - tanh_t ** 2) * t_prime)
+    else:
+        x_np   = x_data if isinstance(x_data, np.ndarray) else np.array(x_data)
+        g      = grad_data if isinstance(grad_data, np.ndarray) else np.array(grad_data)
+        c      = np.sqrt(2.0 / np.pi)
+        t      = c * (x_np + 0.044715 * np.power(x_np, 3))
+        tanh_t = np.tanh(t)
+        t_prime = c * (1.0 + 3.0 * 0.044715 * x_np ** 2)
+        grad_x  = g * (0.5 * (1.0 + tanh_t) + 0.5 * x_np * (1.0 - tanh_t ** 2) * t_prime)
+
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_x
+        tensors[0].backward(tensors[0].grad)
+    return grad_x
+
+
+def dropout_backward(tensors: Any, grad_outputs: Any) -> Any:
+    """
+    tensors = [x, mask]
+    mask is the scaled binary mask produced during the forward pass
+    (already multiplied by 1 / (1 - p)).
+    Backward is simply grad * mask — same operation as the forward, no new randomness.
+    """
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    x    = tensors[0]
+    mask = tensors[1]   # raw numpy array
+
+    if mx and isinstance(grad_data, mx.array):
+        m      = mx.array(mask) if not isinstance(mask, mx.array) else mask
+        grad_x = grad_data * m
+    else:
+        g      = grad_data if isinstance(grad_data, np.ndarray) else np.array(grad_data)
+        grad_x = g * mask
+
+    if isinstance(x, ts.Tensor) and x.requires_grad:
+        x.grad = grad_x
+        x.backward(x.grad)
+    return grad_x
+
+
+def cross_entropy_backward(tensors: Any, grad_outputs: Any) -> Any:
+    """
+    Cross-entropy from raw logits.
+    tensors = [logits_tensor, target_tensor]
+      logits : (B, C)  raw (pre-softmax) scores
+      target : (B,)    integer class indices   OR   (B, C) one-hot / soft targets
+
+    Gradient of mean cross-entropy w.r.t. logits:
+        (softmax(logits) − one_hot(target)) / B
+    """
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    logits = tensors[0]
+    target = tensors[1]
+
+    logits_data = logits.data if isinstance(logits, ts.Tensor) else logits
+    target_data = target.data if isinstance(target, ts.Tensor) else target
+
+    logits_np = np.array(logits_data).astype(np.float32)
+    target_np = np.array(target_data)
+
+    B = logits_np.shape[0]
+    shifted        = logits_np - logits_np.max(axis=1, keepdims=True)
+    softmax_probs  = np.exp(shifted)
+    softmax_probs /= softmax_probs.sum(axis=1, keepdims=True)
+
+    grad_logits = softmax_probs.copy()
+    if target_np.ndim == 1:
+        grad_logits[np.arange(B), target_np.astype(int)] -= 1.0
+    else:
+        grad_logits -= target_np.astype(np.float32)
+    grad_logits /= B
+
+    # Scale by the upstream scalar gradient (typically 1.0 for a scalar loss)
+    upstream = float(np.array(grad_data).flat[0])
+    grad_logits = (grad_logits * upstream).astype(np.float32)
+
+    if mx and isinstance(logits_data, mx.array):
+        grad_arr = mx.array(grad_logits)
+    else:
+        grad_arr = grad_logits
+
+    if isinstance(logits, ts.Tensor) and logits.requires_grad:
+        logits.grad = grad_arr
+        logits.backward(logits.grad)
+    return grad_arr

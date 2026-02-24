@@ -65,7 +65,7 @@
 
     <div class="status-bar">
         <span class="badge">python: >=3.9</span>
-        <span class="badge">pypi: v0.1.0</span>
+        <span class="badge" id="version-badge">pypi: v…</span>
         <span class="badge">build: passing</span>
         <span class="badge">linter: passing</span>
     </div>
@@ -169,6 +169,22 @@
         }
 
         fetchReleases();
+    </script>
+    <script>
+        fetch('pyproject.toml')
+            .then(r => {
+                if (!r.ok) throw new Error('fetch failed');
+                return r.text();
+            })
+            .then(text => {
+                const m = text.match(/^version\s*=\s*"([^"]+)"/m);
+                if (m) {
+                    document.getElementById('version-badge').textContent = 'pypi: v' + m[1];
+                }
+            })
+            .catch(() => {
+                document.getElementById('version-badge').textContent = 'pypi: v0.1.4.1';
+            });
     </script>
 </body>
 </html>
