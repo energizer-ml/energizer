@@ -23,6 +23,7 @@ class Dropout(Module):
 
         try:
             import mlx.core as mx
+
             if isinstance(x.data, mx.array):
                 out = x.data * mx.array(mask)
             else:

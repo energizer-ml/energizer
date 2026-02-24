@@ -588,18 +588,18 @@ def gelu_backward(tensors: Any, grad_outputs: Any) -> Any:
     if mx and isinstance(x_data, mx.array):
         g = grad_data if isinstance(grad_data, mx.array) else mx.array(grad_data)
         c = mx.array(np.sqrt(2.0 / np.pi))
-        t       = c * (x_data + 0.044715 * mx.power(x_data, 3))
-        tanh_t  = mx.tanh(t)
-        t_prime = c * (1.0 + 3.0 * 0.044715 * x_data ** 2)
-        grad_x  = g * (0.5 * (1.0 + tanh_t) + 0.5 * x_data * (1.0 - tanh_t ** 2) * t_prime)
+        t = c * (x_data + 0.044715 * mx.power(x_data, 3))
+        tanh_t = mx.tanh(t)
+        t_prime = c * (1.0 + 3.0 * 0.044715 * x_data**2)
+        grad_x = g * (0.5 * (1.0 + tanh_t) + 0.5 * x_data * (1.0 - tanh_t**2) * t_prime)
     else:
-        x_np   = x_data if isinstance(x_data, np.ndarray) else np.array(x_data)
-        g      = grad_data if isinstance(grad_data, np.ndarray) else np.array(grad_data)
-        c      = np.sqrt(2.0 / np.pi)
-        t      = c * (x_np + 0.044715 * np.power(x_np, 3))
+        x_np = x_data if isinstance(x_data, np.ndarray) else np.array(x_data)
+        g = grad_data if isinstance(grad_data, np.ndarray) else np.array(grad_data)
+        c = np.sqrt(2.0 / np.pi)
+        t = c * (x_np + 0.044715 * np.power(x_np, 3))
         tanh_t = np.tanh(t)
-        t_prime = c * (1.0 + 3.0 * 0.044715 * x_np ** 2)
-        grad_x  = g * (0.5 * (1.0 + tanh_t) + 0.5 * x_np * (1.0 - tanh_t ** 2) * t_prime)
+        t_prime = c * (1.0 + 3.0 * 0.044715 * x_np**2)
+        grad_x = g * (0.5 * (1.0 + tanh_t) + 0.5 * x_np * (1.0 - tanh_t**2) * t_prime)
 
     if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
         tensors[0].grad = grad_x
@@ -619,14 +619,14 @@ def dropout_backward(tensors: Any, grad_outputs: Any) -> Any:
         if isinstance(grad_outputs[0], ts.Tensor)
         else grad_outputs[0]
     )
-    x    = tensors[0]
-    mask = tensors[1]   # raw numpy array
+    x = tensors[0]
+    mask = tensors[1]  # raw numpy array
 
     if mx and isinstance(grad_data, mx.array):
-        m      = mx.array(mask) if not isinstance(mask, mx.array) else mask
+        m = mx.array(mask) if not isinstance(mask, mx.array) else mask
         grad_x = grad_data * m
     else:
-        g      = grad_data if isinstance(grad_data, np.ndarray) else np.array(grad_data)
+        g = grad_data if isinstance(grad_data, np.ndarray) else np.array(grad_data)
         grad_x = g * mask
 
     if isinstance(x, ts.Tensor) and x.requires_grad:
@@ -660,8 +660,8 @@ def cross_entropy_backward(tensors: Any, grad_outputs: Any) -> Any:
     target_np = np.array(target_data)
 
     B = logits_np.shape[0]
-    shifted        = logits_np - logits_np.max(axis=1, keepdims=True)
-    softmax_probs  = np.exp(shifted)
+    shifted = logits_np - logits_np.max(axis=1, keepdims=True)
+    softmax_probs = np.exp(shifted)
     softmax_probs /= softmax_probs.sum(axis=1, keepdims=True)
 
     grad_logits = softmax_probs.copy()

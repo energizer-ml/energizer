@@ -44,7 +44,7 @@ class CrossEntropyLoss(Module):
 
         B = logits_np.shape[0]
 
-        shifted   = logits_np - logits_np.max(axis=1, keepdims=True)
+        shifted = logits_np - logits_np.max(axis=1, keepdims=True)
         log_probs = shifted - np.log(np.exp(shifted).sum(axis=1, keepdims=True))
 
         if target_np.ndim == 1:
