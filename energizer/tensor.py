@@ -314,7 +314,9 @@ class Tensor:
             device=self.device,
         )
 
-    def squeeze(self, dim: Optional[int] = None, axis: Optional[int] = None) -> "Tensor":
+    def squeeze(
+        self, dim: Optional[int] = None, axis: Optional[int] = None
+    ) -> "Tensor":
         if axis is not None:
             dim = axis
         if isinstance(self.data, mx.array):

@@ -2,6 +2,7 @@ from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import numpy as np
 
+
 class Tanh(Module):
     def __init__(self):
         super().__init__()
