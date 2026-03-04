@@ -104,7 +104,7 @@ Example::
     optimizer.zero_grad()
 """
 
-__version_info__ = (0, 1, 4, 1)
+__version_info__ = (0, 1, 4, 2)
 __version__ = ".".join(map(str, __version_info__))
 __author__ = "Florian GRIMA"
 __name__ = "energizer"
@@ -114,6 +114,56 @@ __license__ = "MIT"
 __copyright__ = "Copyright 2026 Florian GRIMA"
 __maintainer__ = "Florian GRIMA"
 __status__ = "Development"
+
+# ---------------------------------------------------------------------------
+# Context Managers
+# ---------------------------------------------------------------------------
+class _NoGrad:
+    """
+    Simple context manager to disable gradient tracking.
+
+    This is a lightweight analogue of torch.no_grad(). It temporarily sets
+    `requires_grad` to False on all existing tensors that currently require
+    gradients, and restores their original flags on exit.
+    """
+
+    def __enter__(self):
+        # Track tensors whose requires_grad flag we flip.
+        self._modified = []
+        # Import here to avoid circular imports at module import time.
+        try:
+            import gc
+        except ImportError:
+            return self
+
+        for obj in gc.get_objects():
+            try:
+                if isinstance(obj, Tensor) and getattr(obj, "requires_grad", False):
+                    self._modified.append(obj)
+                    obj.requires_grad = False
+            except ReferenceError:
+                continue
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for t in getattr(self, "_modified", []):
+            t.requires_grad = True
+        return False
+
+
+def no_grad():
+    """
+    Context manager that disables autograd on existing tensors.
+
+    Usage:
+
+        import energizer as ez
+
+        with ez.no_grad():
+            out = model(x)
+    """
+
+    return _NoGrad()
 
 # ---------------------------------------------------------------------------
 # Core
@@ -145,6 +195,7 @@ from .layers.convtranspose import ConvTranspose2d
 from .layers.relu import ReLU, LeakyReLU
 from .layers.sigmoid import Sigmoid
 from .layers.gelu import GELU
+from .layers.tanh import Tanh
 
 # ---------------------------------------------------------------------------
 # Layers — Normalization

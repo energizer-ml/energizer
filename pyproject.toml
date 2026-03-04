@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "energizer"
-version = "0.1.4.1"
+version = "0.1.4.2"
 description = "A lightweight deep learning library for Apple's Neural Engine."
 readme = "README.md"
 license = "MIT"

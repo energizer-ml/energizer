@@ -1,4 +1,4 @@
-from ctypes import Union
+from typing import Union
 from energizer.tensor import Tensor
 import numpy as np
 import numpy.lib.stride_tricks as np_stride_tricks

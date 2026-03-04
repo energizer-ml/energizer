@@ -165,6 +165,9 @@ class Tensor:
             device=self.device,
         )
 
+    def __radd__(self, other: Union[int, float, "Tensor"]) -> "Tensor":
+        return self.__add__(other)
+
     def __sub__(self, other: Union[int, float, "Tensor"]) -> "Tensor":
         other_data = self._get_other_data(other)
         return Tensor(
@@ -283,7 +286,9 @@ class Tensor:
             self.data.copy(), requires_grad=self.requires_grad, grad_fn=self.grad_fn
         )
 
-    def sum(self, dim: Optional[int] = None) -> "Tensor":
+    def sum(self, dim: Optional[int] = None, axis: Optional[int] = None) -> "Tensor":
+        if axis is not None:
+            dim = axis
         if isinstance(self.data, mx.array):
             result = mx.sum(self.data, axis=dim)
         else:
@@ -295,7 +300,9 @@ class Tensor:
             device=self.device,
         )
 
-    def mean(self, dim: Optional[int] = None) -> "Tensor":
+    def mean(self, dim: Optional[int] = None, axis: Optional[int] = None) -> "Tensor":
+        if axis is not None:
+            dim = axis
         if isinstance(self.data, mx.array):
             result = mx.mean(self.data, axis=dim)
         else:
@@ -304,6 +311,82 @@ class Tensor:
             result,
             requires_grad=self.requires_grad,
             grad_fn=Function(dv.mean_backward, [self, dim]),
+            device=self.device,
+        )
+
+    def squeeze(self, dim: Optional[int] = None, axis: Optional[int] = None) -> "Tensor":
+        if axis is not None:
+            dim = axis
+        if isinstance(self.data, mx.array):
+            result = self.data.squeeze(axis=dim)
+        else:
+            result = self.data.squeeze(axis=dim)
+        return Tensor(
+            result,
+            requires_grad=self.requires_grad,
+            grad_fn=Function(dv.squeeze_backward, [self, dim]),
+            device=self.device,
+        )
+
+    def exp(self) -> "Tensor":
+        if isinstance(self.data, mx.array):
+            result = self.data.exp()
+        else:
+            result = np.exp(self.data)
+        return Tensor(
+            result,
+            requires_grad=self.requires_grad,
+            grad_fn=Function(dv.exp_backward, [self]),
+            device=self.device,
+        )
+
+    def log(self) -> "Tensor":
+        if isinstance(self.data, mx.array):
+            result = self.data.log()
+        else:
+            result = np.log(self.data)
+        return Tensor(
+            result,
+            requires_grad=self.requires_grad,
+            grad_fn=Function(dv.log_backward, [self]),
+            device=self.device,
+        )
+
+    def clamp(self, min: Union[int, float], max: Union[int, float]) -> "Tensor":
+        if isinstance(self.data, mx.array):
+            result = mx.clip(self.data, min, max)
+        else:
+            result = np.clip(self.data, min, max)
+        return Tensor(
+            result,
+            requires_grad=self.requires_grad,
+            grad_fn=Function(dv.clamp_backward, [self, min, max]),
+            device=self.device,
+        )
+
+    def minimum(self, other: Union[int, float, "Tensor"]) -> "Tensor":
+        other_data = self._get_other_data(other)
+        if isinstance(self.data, mx.array):
+            result = mx.minimum(self.data, other_data)
+        else:
+            result = np.minimum(self.data, other_data)
+        return Tensor(
+            result,
+            requires_grad=self.requires_grad,
+            grad_fn=Function(dv.minimum_backward, [self, other]),
+            device=self.device,
+        )
+
+    def maximum(self, other: Union[int, float, "Tensor"]) -> "Tensor":
+        other_data = self._get_other_data(other)
+        if isinstance(self.data, mx.array):
+            result = mx.maximum(self.data, other_data)
+        else:
+            result = np.maximum(self.data, other_data)
+        return Tensor(
+            result,
+            requires_grad=self.requires_grad,
+            grad_fn=Function(dv.maximum_backward, [self, other]),
             device=self.device,
         )
 

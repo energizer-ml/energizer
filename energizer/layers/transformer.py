@@ -1,5 +1,4 @@
-from ctypes import Union
-from typing import Callable
+from typing import Callable, Union
 from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import energizer

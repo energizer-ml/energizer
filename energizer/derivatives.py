@@ -684,3 +684,69 @@ def cross_entropy_backward(tensors: Any, grad_outputs: Any) -> Any:
         logits.grad = grad_arr
         logits.backward(logits.grad)
     return grad_arr
+
+def squeeze_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_data
+        tensors[0].backward(tensors[0].grad)
+    return grad_data
+
+def exp_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_data * tensors[0].data
+        tensors[0].backward(tensors[0].grad)
+    return grad_data * tensors[0].data
+
+def log_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_data / tensors[0].data
+        tensors[0].backward(tensors[0].grad)
+    return grad_data / tensors[0].data
+
+def clamp_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_data * (tensors[0].data >= tensors[1]) * (tensors[0].data <= tensors[2])
+        tensors[0].backward(tensors[0].grad)
+    return grad_data * (tensors[0].data >= tensors[1]) * (tensors[0].data <= tensors[2])
+
+def minimum_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_data * (tensors[0].data <= tensors[1])
+        tensors[0].backward(tensors[0].grad)
+    return grad_data * (tensors[0].data <= tensors[1])
+
+def maximum_backward(tensors: Any, grad_outputs: Any) -> Any:
+    grad_data = (
+        grad_outputs[0].data
+        if isinstance(grad_outputs[0], ts.Tensor)
+        else grad_outputs[0]
+    )
+    if isinstance(tensors[0], ts.Tensor) and tensors[0].requires_grad:
+        tensors[0].grad = grad_data * (tensors[0].data >= tensors[1])
+        tensors[0].backward(tensors[0].grad)
+    return grad_data * (tensors[0].data >= tensors[1])

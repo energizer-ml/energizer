@@ -1,5 +1,4 @@
-from ast import Dict, List
-from typing import Callable, Any
+from typing import Dict, List, Any, Callable
 
 from energizer.tensor import Tensor
 import numpy as np
