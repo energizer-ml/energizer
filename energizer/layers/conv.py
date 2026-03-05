@@ -5,6 +5,7 @@ import numpy as np
 import mlx.core as mx
 import energizer.functionnal as F
 
+
 class ConvNd(Module):
     def __init__(
         self,

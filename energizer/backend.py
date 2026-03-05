@@ -11,6 +11,7 @@ import numpy as np
 # Lazy import — don't crash on non-Apple hardware
 try:
     import mlx.core as mx
+
     MLX_AVAILABLE = True
 except ImportError:
     mx = None
@@ -120,7 +121,11 @@ class Backend:
     @staticmethod
     def clip(a, min_val, max_val, device: str):
         Backend.validate(device)
-        return mx.clip(a, min_val, max_val) if device == "gpu" else np.clip(a, min_val, max_val)
+        return (
+            mx.clip(a, min_val, max_val)
+            if device == "gpu"
+            else np.clip(a, min_val, max_val)
+        )
 
     # ── Reductions ──────────────────────────────────────────────
 
@@ -129,21 +134,33 @@ class Backend:
         Backend.validate(device)
         if device == "gpu":
             # MLX requires axis as positional — passing None as kwarg breaks it
-            return mx.sum(a, keepdims=keepdims) if axis is None else mx.sum(a, axis, keepdims=keepdims)
+            return (
+                mx.sum(a, keepdims=keepdims)
+                if axis is None
+                else mx.sum(a, axis, keepdims=keepdims)
+            )
         return np.sum(a, axis=axis, keepdims=keepdims)
 
     @staticmethod
     def mean(a, axis=None, keepdims=False, device: str = "cpu"):
         Backend.validate(device)
         if device == "gpu":
-            return mx.mean(a, keepdims=keepdims) if axis is None else mx.mean(a, axis, keepdims=keepdims)
+            return (
+                mx.mean(a, keepdims=keepdims)
+                if axis is None
+                else mx.mean(a, axis, keepdims=keepdims)
+            )
         return np.mean(a, axis=axis, keepdims=keepdims)
 
     @staticmethod
     def max(a, axis=None, keepdims=False, device: str = "cpu"):
         Backend.validate(device)
         if device == "gpu":
-            return mx.max(a, keepdims=keepdims) if axis is None else mx.max(a, axis, keepdims=keepdims)
+            return (
+                mx.max(a, keepdims=keepdims)
+                if axis is None
+                else mx.max(a, axis, keepdims=keepdims)
+            )
         return np.max(a, axis=axis, keepdims=keepdims)
 
     # ── Activations ─────────────────────────────────────────────

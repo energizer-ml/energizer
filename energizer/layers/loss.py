@@ -8,6 +8,7 @@ try:
 except ImportError:
     mx = None
 
+
 class MSELoss(Module):
     def __init__(
         self, size_average: bool = None, reduce: bool = None, reduction: str = "mean"
@@ -21,11 +22,12 @@ class MSELoss(Module):
             return diff.sum()
         return diff.mean()
 
+
 class CrossEntropyFn(autograd.Function):
     @staticmethod
     def forward(ctx, logits_data, target_data, reduction):
         ctx.save_for_backward(logits_data, target_data, reduction)
-        
+
         logits_np = np.array(logits_data).astype(np.float32)
         target_np = np.array(target_data)
 
@@ -53,7 +55,7 @@ class CrossEntropyFn(autograd.Function):
     @staticmethod
     def backward(ctx, grad):
         logits_data, target_data, reduction = ctx.saved_tensors
-        
+
         logits_np = np.array(logits_data).astype(np.float32)
         target_np = np.array(target_data)
 
@@ -67,7 +69,7 @@ class CrossEntropyFn(autograd.Function):
             grad_logits[np.arange(B), target_np.astype(int)] -= 1.0
         else:
             grad_logits -= target_np.astype(np.float32)
-            
+
         if reduction == "mean":
             grad_logits /= B
 
@@ -75,6 +77,7 @@ class CrossEntropyFn(autograd.Function):
         grad_logits = (grad_logits * upstream).astype(np.float32)
 
         return (grad_logits, None, None)
+
 
 class CrossEntropyLoss(Module):
     def __init__(

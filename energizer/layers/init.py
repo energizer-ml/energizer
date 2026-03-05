@@ -3,8 +3,10 @@ from typing import Any
 import numpy as np
 import mlx.core as mx
 
+
 def _get_data_ref(x: Any):
     return x.data if hasattr(x, "data") else x
+
 
 def zeros_(tensor: Any) -> Any:
     data = _get_data_ref(tensor)
@@ -16,6 +18,7 @@ def zeros_(tensor: Any) -> Any:
         tensor.data = z
         return tensor
     return z
+
 
 def orthogonal_(tensor: Any, gain: float = 1.0, seed: int | None = None) -> Any:
     data = _get_data_ref(tensor)
