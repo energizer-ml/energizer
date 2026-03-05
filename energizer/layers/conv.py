@@ -4,8 +4,6 @@ from energizer.tensor import Tensor
 import numpy as np
 import mlx.core as mx
 import energizer.functionnal as F
-import energizer.derivatives as dv
-
 
 class ConvNd(Module):
     def __init__(
@@ -109,12 +107,6 @@ class Conv1d(ConvNd):
         return Tensor(
             result,
             requires_grad=input.requires_grad,
-            grad_fn=Function(
-                dv.conv1d_backward,
-                [self._input, self.weight, self.bias],
-                stride=self.stride,
-                padding=self.padding,
-            ),
         )
 
     def _pad1d(self, input: Tensor, padding: int) -> Tensor:

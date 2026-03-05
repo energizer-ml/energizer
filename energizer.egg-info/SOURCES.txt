@@ -20,6 +20,7 @@ energizer/layers/dropout.py
 energizer/layers/embedding.py
 energizer/layers/flatten.py
 energizer/layers/gelu.py
+energizer/layers/init.py
 energizer/layers/layer_norm.py
 energizer/layers/linear.py
 energizer/layers/loss.py
@@ -30,6 +31,7 @@ energizer/layers/reshape.py
 energizer/layers/residual.py
 energizer/layers/sequential.py
 energizer/layers/sigmoid.py
+energizer/layers/tanh.py
 energizer/layers/transformer.py
 energizer/layers/trim.py
 energizer/optimizer/adam.py

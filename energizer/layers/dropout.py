@@ -34,7 +34,6 @@ class Dropout(Module):
         return Tensor(
             out,
             requires_grad=x.requires_grad,
-            grad_fn=Function(dv.dropout_backward, [x, mask]),
             device=x.device,
         )
 
