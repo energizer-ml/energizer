@@ -44,19 +44,15 @@ class Function:
         Main entry point. Call this instead of forward() directly.
         Builds the graph node and runs forward.
         """
-        # Find first tensor to infer device
         first_tensor = next(t for t in args if isinstance(t, Tensor))
         ctx = Context(device=first_tensor.device)
 
-        # Run forward with raw arrays for Tensors, keep others as-is
         raw_inputs = [t.data if isinstance(t, Tensor) else t for t in args]
         raw_out = cls.forward(ctx, *raw_inputs)
 
-        # Build output tensor
         requires_grad = any(getattr(t, "requires_grad", False) for t in args)
         out = Tensor(raw_out, device=first_tensor.device, requires_grad=requires_grad)
 
-        # Attach graph node only if we need gradients.
         if requires_grad:
             out._node = GraphNode(
                 function=cls,
@@ -81,7 +77,7 @@ class Context:
     def __init__(self, device: str):
         self.device = device
         self._saved = []
-        self._cache = {}  # for arbitrary metadata (e.g. kernel size)
+        self._cache = {}
 
     def save_for_backward(self, *arrays):
         """Save raw arrays to use in backward()."""
@@ -95,7 +91,6 @@ class Context:
         if key.startswith("_") or key == "device":
             super().__setattr__(key, value)
         else:
-            # ctx.stride = 2  → stored in _cache
             self._cache[key] = value
 
     def __getattr__(self, key):
@@ -122,8 +117,8 @@ class GraphNode:
     def __init__(self, function: type, ctx: Context, inputs: list, parents: list):
         self.function = function
         self.ctx = ctx
-        self.inputs = inputs  # ALL inputs in forward order
-        self.parents = parents  # subset: only requires_grad=True
+        self.inputs = inputs
+        self.parents = parents
 
 
 # ── Tensor ───────────────────────────────────────────────────────────────────
@@ -141,8 +136,6 @@ class Tensor:
                 device = data.device
             data = data.data
 
-        # Always convert to the correct backend array type for this device.
-        # This handles: plain lists, scalars, np.ndarray on gpu, mx.array on cpu.
         if device == "gpu" and MLX_AVAILABLE:
             import mlx.core as mx_local
 
@@ -157,7 +150,7 @@ class Tensor:
         self.data = data
         self.device = device
         self.requires_grad = requires_grad
-        self.grad: Optional[Tensor] = None  # filled by backward()
+        self.grad: Optional[Tensor] = None
         self._node: Optional[GraphNode] = None
 
     # ── Backward ─────────────────────────────────────────────────────────────
@@ -171,7 +164,6 @@ class Tensor:
         if not self.requires_grad:
             raise RuntimeError("Called backward() on a tensor with requires_grad=False")
 
-        # Seed gradient: default to 1.0 for scalar loss
         if grad is None:
             if self.data.shape != () and self.data.size != 1:
                 raise RuntimeError(
@@ -183,10 +175,6 @@ class Tensor:
             seed = grad.data
 
         # ── Topological sort ─────────────────────────────────────────────────
-        # Collect all nodes that have a _node (non-leaf intermediate tensors).
-        # Leaf tensors (no _node) are NOT in order, but their parents are
-        # referenced from nodes that ARE in order — we write their grads
-        # separately at the end.
         order = []
         visited = set()
 
@@ -200,8 +188,6 @@ class Tensor:
 
         topo(self)
 
-        # Also track every tensor we encounter (including leaves)
-        # so we can write grads onto them at the end.
         all_tensors: dict[int, Tensor] = {}
 
         def collect(t: Tensor):
@@ -225,20 +211,15 @@ class Tensor:
             if g is None:
                 continue
 
-            # Call the function's backward with raw array grad
             input_grads = t._node.function.backward(t._node.ctx, g)
 
-            # backward() may return a single array or a tuple
             if not isinstance(input_grads, tuple):
                 input_grads = (input_grads,)
 
-            # Zip over ALL inputs (not just parents) so positions align.
             for inp, pg in zip(t._node.inputs, input_grads):
                 if pg is None or not getattr(inp, "requires_grad", False):
                     continue
 
-                # Ensure gradient has the same shape as the input tensor
-                # (reduces broadcasted dimensions).
                 pg = _unbroadcast_grad(pg, inp.shape, inp.device)
 
                 pid = id(inp)
@@ -257,7 +238,6 @@ class Tensor:
             if t.grad is None:
                 t.grad = Tensor(g, device=t.device)
             else:
-                # Accumulate across multiple backward() calls (e.g. called twice)
                 t.grad = Tensor(t.grad.data + g, device=t.device)
 
     def zero_grad(self):
@@ -314,7 +294,6 @@ class Tensor:
     def item(self):
         """Extract a Python scalar from a single-element tensor."""
         data = self.data
-        # MLX arrays need to be evaluated first
         if _is_mlx(data):
             return data.item()
         arr = np.asarray(data)
@@ -396,7 +375,6 @@ class Tensor:
 
 
 # ── Built-in Functions ───────────────────────────────────────────────────────
-# Each one calls backend.* so the math is always dispatched correctly.
 
 
 class Add(Function):
@@ -476,7 +454,7 @@ class Pow(Function):
     @staticmethod
     def backward(ctx, grad):
         a, exp = ctx.saved_tensors
-        return (exp * a ** (exp - 1) * grad, None)  # None = no grad for exponent
+        return (exp * a ** (exp - 1) * grad, None)
 
 
 class Sum(Function):
@@ -787,7 +765,6 @@ class AsStrided(Function):
         if ctx.device == "gpu":
             import mlx.core as mx
 
-            # Simple fallback if mlx as_strided needs special handling
             flat_array = mx.flatten(a)
             if storage_offset > 0:
                 flat_array = flat_array[storage_offset:]
@@ -809,11 +786,9 @@ class AsStrided(Function):
         orig_shape, shape, strides, storage_offset = ctx.saved_tensors
         import numpy as np
 
-        # Exact backward for as_strided is complex, falling back to primitive zeroing + accumulation
         grad_a = np.zeros(orig_shape, dtype=np.float32)
         flat_grad_a = grad_a.reshape(-1)
 
-        # This is a naive heuristic (since true general strided backward requires careful scatter_add)
         import itertools
         from energizer.backend import to_numpy
 
@@ -849,7 +824,6 @@ def _unbroadcast_grad(grad, shape, device: str):
         if s_dim == 1 and g_dim > 1:
             grad = backend.sum(grad, axis=i, keepdims=True, device=device)
 
-    # Some backends may drop shape info entirely if shape is () but grad is scalar
     if hasattr(grad, "reshape"):
         grad = grad.reshape(shape)
     else:

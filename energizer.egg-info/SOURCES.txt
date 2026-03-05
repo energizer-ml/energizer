@@ -2,6 +2,8 @@ LICENSE
 README.md
 pyproject.toml
 energizer/__init__.py
+energizer/autograd.py
+energizer/backend.py
 energizer/derivatives.py
 energizer/function.py
 energizer/functionnal.py

@@ -8,7 +8,6 @@ Backends:
 
 import numpy as np
 
-# Lazy import — don't crash on non-Apple hardware
 try:
     import mlx.core as mx
 
@@ -33,7 +32,7 @@ class Backend:
     def is_available(device: str) -> bool:
         if device == "gpu":
             return MLX_AVAILABLE
-        return True  # CPU/NumPy always available
+        return True
 
     @staticmethod
     def validate(device: str):
@@ -86,8 +85,6 @@ class Backend:
     def matmul(a, b, device: str):
         Backend.validate(device)
         if device == "gpu":
-            # Ensure both arrays are MLX arrays — they may be np.ndarray
-            # if the Tensor was created from plain Python data
             a = mx.array(a) if not isinstance(a, mx.array) else a
             b = mx.array(b) if not isinstance(b, mx.array) else b
             return mx.matmul(a, b)
@@ -133,7 +130,6 @@ class Backend:
     def sum(a, axis=None, keepdims=False, device: str = "cpu"):
         Backend.validate(device)
         if device == "gpu":
-            # MLX requires axis as positional — passing None as kwarg breaks it
             return (
                 mx.sum(a, keepdims=keepdims)
                 if axis is None
@@ -184,7 +180,7 @@ class Backend:
         Backend.validate(device)
         if device == "gpu":
             return mx.softmax(a, axis=axis)
-        e = np.exp(a - np.max(a, axis=axis, keepdims=True))  # stable
+        e = np.exp(a - np.max(a, axis=axis, keepdims=True))
         return e / np.sum(e, axis=axis, keepdims=True)
 
     # ── Type / device conversion ─────────────────────────────────
@@ -193,7 +189,7 @@ class Backend:
     def to_numpy(a, device: str) -> np.ndarray:
         """Convert any backend array to a NumPy array (e.g. for logging)."""
         if device == "gpu":
-            return np.array(a.tolist())  # MLX → Python list → NumPy
+            return np.array(a.tolist())
         return np.asarray(a)
 
     @staticmethod
@@ -201,9 +197,8 @@ class Backend:
         """Move raw data between backends."""
         if from_device == to_device:
             return a
-        raw = Backend.to_numpy(a, from_device)  # always go through NumPy
+        raw = Backend.to_numpy(a, from_device)
         return Backend.array(raw, to_device)
 
 
-# Singleton — import this everywhere instead of instantiating
 backend = Backend()
