@@ -1,8 +1,6 @@
 from energizer.neural_network import Module
 from energizer.tensor import Tensor
-from energizer.function import Function
-import energizer.derivatives as dv
-import numpy as np
+import energizer.autograd as autograd
 
 
 class Reshape(Module):
@@ -24,22 +22,4 @@ class Reshape(Module):
 
         new_shape = tuple(new_shape)
 
-        if x.device == "gpu":
-            import mlx.core as mx
-
-            if isinstance(x.data, mx.array):
-                reshaped_data = mx.reshape(x.data, new_shape)
-            else:
-                reshaped_data = mx.reshape(mx.array(x.data), new_shape)
-        else:
-            if isinstance(x.data, np.ndarray):
-                reshaped_data = x.data.reshape(new_shape)
-            else:
-                reshaped_data = np.array(x.data).reshape(new_shape)
-
-        return Tensor(
-            reshaped_data,
-            requires_grad=x.requires_grad,
-            grad_fn=Function(dv.reshape_backward, [x]) if x.requires_grad else None,
-            device=x.device,
-        )
+        return autograd.Reshape.apply(x, new_shape)

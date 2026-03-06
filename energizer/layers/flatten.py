@@ -1,8 +1,6 @@
 from energizer.neural_network import Module
 from energizer.tensor import Tensor
-from energizer.function import Function
-import energizer.derivatives as dv
-import numpy as np
+import energizer.autograd as autograd
 
 
 class Flatten(Module):
@@ -18,10 +16,5 @@ class Flatten(Module):
         if self.end_dim < 0:
             self.end_dim = len(x.data.shape) + self.end_dim
 
-        flattened = x.data.reshape(batch_size, -1)
-        return Tensor(
-            flattened,
-            requires_grad=x.requires_grad,
-            grad_fn=Function(dv.reshape_backward, [x]) if x.requires_grad else None,
-            device=x.device,
-        )
+        new_shape = (batch_size, -1)
+        return autograd.Reshape.apply(x, new_shape)
