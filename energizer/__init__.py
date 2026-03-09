@@ -104,7 +104,7 @@ Example::
     optimizer.zero_grad()
 """
 
-__version_info__ = (0, 1, 5)
+__version_info__ = (0, 1, 5, 1)
 __version__ = ".".join(map(str, __version_info__))
 __author__ = "Florian GRIMA"
 __name__ = "energizer"

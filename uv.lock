@@ -43,7 +43,7 @@ wheels = [
 
 [[package]]
 name = "energizer"
-version = "0.1.5"
+version = "0.1.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "mlx" },
