@@ -13,8 +13,8 @@ import numpy as np
 from typing import Optional
 from energizer.backend import backend, MLX_AVAILABLE
 
-
 # ── Function base ────────────────────────────────────────────────────────────
+
 
 class Function:
     """
@@ -50,7 +50,7 @@ class Function:
 
         # Run forward with raw arrays for Tensors, keep others as-is
         raw_inputs = [t.data if isinstance(t, Tensor) else t for t in args]
-        raw_out    = cls.forward(ctx, *raw_inputs)
+        raw_out = cls.forward(ctx, *raw_inputs)
 
         # Build output tensor
         requires_grad = any(getattr(t, "requires_grad", False) for t in args)
@@ -70,6 +70,7 @@ class Function:
 
 # ── Context ──────────────────────────────────────────────────────────────────
 
+
 class Context:
     """
     Passed to forward() and backward().
@@ -79,8 +80,8 @@ class Context:
 
     def __init__(self, device: str):
         self.device = device
-        self._saved  = []
-        self._cache  = {}   # for arbitrary metadata (e.g. kernel size)
+        self._saved = []
+        self._cache = {}  # for arbitrary metadata (e.g. kernel size)
 
     def save_for_backward(self, *arrays):
         """Save raw arrays to use in backward()."""
@@ -106,6 +107,7 @@ class Context:
 
 # ── Graph node ───────────────────────────────────────────────────────────────
 
+
 class GraphNode:
     """
     One node in the computation graph.
@@ -117,15 +119,15 @@ class GraphNode:
 
     __slots__ = ("function", "ctx", "inputs", "parents")
 
-    def __init__(self, function: type, ctx: Context,
-                 inputs: list, parents: list):
+    def __init__(self, function: type, ctx: Context, inputs: list, parents: list):
         self.function = function
-        self.ctx      = ctx
-        self.inputs   = inputs   # ALL inputs in forward order
-        self.parents  = parents  # subset: only requires_grad=True
+        self.ctx = ctx
+        self.inputs = inputs  # ALL inputs in forward order
+        self.parents = parents  # subset: only requires_grad=True
 
 
 # ── Tensor ───────────────────────────────────────────────────────────────────
+
 
 class Tensor:
     """
@@ -138,11 +140,12 @@ class Tensor:
             if device == "cpu" and data.device != "cpu":
                 device = data.device
             data = data.data
-            
+
         # Always convert to the correct backend array type for this device.
         # This handles: plain lists, scalars, np.ndarray on gpu, mx.array on cpu.
         if device == "gpu" and MLX_AVAILABLE:
             import mlx.core as mx_local
+
             if not isinstance(data, mx_local.array):
                 data = mx_local.array(data)
         else:
@@ -151,10 +154,10 @@ class Tensor:
             elif data.dtype != np.float32:
                 data = data.astype(np.float32)
 
-        self.data          = data
-        self.device        = device
+        self.data = data
+        self.device = device
         self.requires_grad = requires_grad
-        self.grad: Optional[Tensor] = None   # filled by backward()
+        self.grad: Optional[Tensor] = None  # filled by backward()
         self._node: Optional[GraphNode] = None
 
     # ── Backward ─────────────────────────────────────────────────────────────
@@ -183,7 +186,7 @@ class Tensor:
         # Leaf tensors (no _node) are NOT in order, but their parents are
         # referenced from nodes that ARE in order — we write their grads
         # separately at the end.
-        order   = []
+        order = []
         visited = set()
 
         def topo(t: Tensor):
@@ -235,7 +238,7 @@ class Tensor:
                 if pg is None or not getattr(inp, "requires_grad", False):
                     continue
 
-                # Ensure gradient has the same shape as the input tensor 
+                # Ensure gradient has the same shape as the input tensor
                 # (reduces broadcasted dimensions).
                 pg = _unbroadcast_grad(pg, inp.shape, inp.device)
 
@@ -271,25 +274,43 @@ class Tensor:
 
     # ── Operator overloads (delegate to Function subclasses) ─────────────────
 
-    def __add__(self, other):  return Add.apply(self, _wrap(other, self))
-    def __sub__(self, other):  return Sub.apply(self, _wrap(other, self))
-    def __mul__(self, other):  return Mul.apply(self, _wrap(other, self))
-    def __truediv__(self, other): return Div.apply(self, _wrap(other, self))
-    def __matmul__(self, other):  return MatMul.apply(self, _wrap(other, self))
-    def __neg__(self):         return Neg.apply(self)
-    def __pow__(self, exp):    return Pow.apply(self, _wrap(exp, self))
+    def __add__(self, other):
+        return Add.apply(self, _wrap(other, self))
 
-    def sum(self, axis=None):  return Sum.apply(self) if axis is None else SumAxis.apply(self, axis)
-    def mean(self, axis=None): return Mean.apply(self)
+    def __sub__(self, other):
+        return Sub.apply(self, _wrap(other, self))
+
+    def __mul__(self, other):
+        return Mul.apply(self, _wrap(other, self))
+
+    def __truediv__(self, other):
+        return Div.apply(self, _wrap(other, self))
+
+    def __matmul__(self, other):
+        return MatMul.apply(self, _wrap(other, self))
+
+    def __neg__(self):
+        return Neg.apply(self)
+
+    def __pow__(self, exp):
+        return Pow.apply(self, _wrap(exp, self))
+
+    def sum(self, axis=None):
+        return Sum.apply(self) if axis is None else SumAxis.apply(self, axis)
+
+    def mean(self, axis=None):
+        return Mean.apply(self)
 
     def __repr__(self):
         return f"Tensor({self.data}, device='{self.device}', requires_grad={self.requires_grad})"
 
     @property
-    def shape(self): return self.data.shape
+    def shape(self):
+        return self.data.shape
 
     @property
-    def T(self): return Transpose.apply(self)
+    def T(self):
+        return Transpose.apply(self)
 
     def item(self):
         """Extract a Python scalar from a single-element tensor."""
@@ -299,21 +320,20 @@ class Tensor:
             return data.item()
         arr = np.asarray(data)
         if arr.size != 1:
-            raise ValueError(f"item() only works on single-element tensors, got shape {arr.shape}")
+            raise ValueError(
+                f"item() only works on single-element tensors, got shape {arr.shape}"
+            )
         return float(arr.flat[0])
 
-
-
-    
     def tanh(self):
         return Tanh.apply(self)
-        
+
     def sigmoid(self):
         return Sigmoid.apply(self)
-        
+
     def softmax(self):
         return Softmax.apply(self)
-    
+
     def numpy(self):
         return backend.to_numpy(self.data, self.device)
 
@@ -338,15 +358,21 @@ class Tensor:
 
     @staticmethod
     def randn(*args, device="cpu", **kwargs):
-        return Tensor(backend.randn(*args, device=device), requires_grad=False, device=device)
+        return Tensor(
+            backend.randn(*args, device=device), requires_grad=False, device=device
+        )
 
     @staticmethod
     def zeros(shape, device="cpu"):
-        return Tensor(backend.zeros(shape, device=device), requires_grad=False, device=device)
+        return Tensor(
+            backend.zeros(shape, device=device), requires_grad=False, device=device
+        )
 
     @staticmethod
     def ones(shape, device="cpu"):
-        return Tensor(backend.ones(shape, device=device), requires_grad=False, device=device)
+        return Tensor(
+            backend.ones(shape, device=device), requires_grad=False, device=device
+        )
 
     def reshape(self, shape):
         return Reshape.apply(self, shape)
@@ -369,8 +395,10 @@ class Tensor:
     def __getitem__(self, key):
         return GetItem.apply(self, key)
 
+
 # ── Built-in Functions ───────────────────────────────────────────────────────
 # Each one calls backend.* so the math is always dispatched correctly.
+
 
 class Add(Function):
     @staticmethod
@@ -413,7 +441,7 @@ class Div(Function):
     @staticmethod
     def backward(ctx, grad):
         a, b = ctx.saved_tensors
-        return grad / b, -grad * a / (b ** 2)
+        return grad / b, -grad * a / (b**2)
 
 
 class MatMul(Function):
@@ -444,7 +472,7 @@ class Pow(Function):
     @staticmethod
     def forward(ctx, a, exp):
         ctx.save_for_backward(a, exp)
-        return a ** exp
+        return a**exp
 
     @staticmethod
     def backward(ctx, grad):
@@ -460,7 +488,7 @@ class Sum(Function):
 
     @staticmethod
     def backward(ctx, grad):
-        a, = ctx.saved_tensors
+        (a,) = ctx.saved_tensors
         return (backend.ones(a.shape, ctx.device) * grad,)
 
 
@@ -474,14 +502,17 @@ class SumAxis(Function):
     def backward(ctx, grad):
         orig_shape, axis = ctx.saved_tensors
         import numpy as np
-        
+
         if axis is not None:
             if isinstance(axis, int):
                 axis = (axis,)
             grad_expanded = grad
             for ax in sorted(axis):
-                if hasattr(grad_expanded, "shape"): pass
-                grad_expanded = backend.lib(ctx.device).expand_dims(grad_expanded, axis=ax)
+                if hasattr(grad_expanded, "shape"):
+                    pass
+                grad_expanded = backend.lib(ctx.device).expand_dims(
+                    grad_expanded, axis=ax
+                )
         else:
             grad_expanded = grad
 
@@ -496,8 +527,8 @@ class Mean(Function):
 
     @staticmethod
     def backward(ctx, grad):
-        a, = ctx.saved_tensors
-        n = a.size if hasattr(a, 'size') else np.prod(a.shape)
+        (a,) = ctx.saved_tensors
+        n = a.size if hasattr(a, "size") else np.prod(a.shape)
         return (backend.ones(a.shape, ctx.device) * grad / n,)
 
 
@@ -520,7 +551,7 @@ class Exp(Function):
 
     @staticmethod
     def backward(ctx, grad):
-        out, = ctx.saved_tensors
+        (out,) = ctx.saved_tensors
         return (out * grad,)
 
 
@@ -532,9 +563,8 @@ class Log(Function):
 
     @staticmethod
     def backward(ctx, grad):
-        a, = ctx.saved_tensors
+        (a,) = ctx.saved_tensors
         return (grad / a,)
-
 
 
 class Reshape(Function):
@@ -544,15 +574,18 @@ class Reshape(Function):
         if hasattr(a, "reshape"):
             return a.reshape(tuple_shape)
         import numpy as np
+
         return np.reshape(a, tuple_shape)
 
     @staticmethod
     def backward(ctx, grad):
-        orig_shape, = ctx.saved_tensors
+        (orig_shape,) = ctx.saved_tensors
         if hasattr(grad, "reshape"):
             return (grad.reshape(orig_shape), None)
         import numpy as np
+
         return (np.reshape(grad, orig_shape), None)
+
 
 class Squeeze(Function):
     @staticmethod
@@ -561,6 +594,7 @@ class Squeeze(Function):
         if hasattr(a, "squeeze"):
             return a.squeeze() if axis is None else a.squeeze(axis=axis)
         import numpy as np
+
         return np.squeeze(a) if axis is None else np.squeeze(a, axis=axis)
 
     @staticmethod
@@ -569,7 +603,9 @@ class Squeeze(Function):
         if hasattr(grad, "reshape"):
             return (grad.reshape(orig_shape), None)
         import numpy as np
+
         return (np.reshape(grad, orig_shape), None)
+
 
 class Clamp(Function):
     @staticmethod
@@ -583,14 +619,17 @@ class Clamp(Function):
         mask = (a >= min_val) & (a <= max_val)
         return (grad * mask, None, None)
 
+
 class Minimum(Function):
     @staticmethod
     def forward(ctx, a, b):
         ctx.save_for_backward(a, b)
         if ctx.device == "gpu":
             import mlx.core as mx
+
             return mx.minimum(a, b)
         import numpy as np
+
         return np.minimum(a, b)
 
     @staticmethod
@@ -600,14 +639,17 @@ class Minimum(Function):
         grad_b = grad * (a > b)
         return (grad_a, grad_b)
 
+
 class Maximum(Function):
     @staticmethod
     def forward(ctx, a, b):
         ctx.save_for_backward(a, b)
         if ctx.device == "gpu":
             import mlx.core as mx
+
             return mx.maximum(a, b)
         import numpy as np
+
         return np.maximum(a, b)
 
     @staticmethod
@@ -616,6 +658,7 @@ class Maximum(Function):
         grad_a = grad * (a >= b)
         grad_b = grad * (a < b)
         return (grad_a, grad_b)
+
 
 class GetItem(Function):
     @staticmethod
@@ -630,6 +673,7 @@ class GetItem(Function):
         if ctx.device == "gpu":
             import mlx.core as mx
             import numpy as np
+
             z_np = np.zeros(orig_shape, dtype=np.float32)
             z_np[key] = np.array(grad)
             return (mx.array(z_np), None)
@@ -650,6 +694,7 @@ class Sigmoid(Function):
         (y,) = ctx.saved_tensors
         return (grad * y * (1.0 - y),)
 
+
 class Tanh(Function):
     @staticmethod
     def forward(ctx, a):
@@ -660,24 +705,42 @@ class Tanh(Function):
     @staticmethod
     def backward(ctx, grad):
         (y,) = ctx.saved_tensors
-        return (grad * (1.0 - y ** 2),)
+        return (grad * (1.0 - y**2),)
+
 
 class GELU(Function):
     @staticmethod
     def forward(ctx, a):
         ctx.save_for_backward(a)
         import numpy as np
+
         if ctx.device == "gpu":
             import mlx.core as mx
-            return 0.5 * a * (1.0 + mx.tanh(mx.array(np.sqrt(2.0 / np.pi)) * (a + 0.044715 * mx.power(a, 3))))
-        return 0.5 * a * (1.0 + np.tanh(np.sqrt(2.0 / np.pi) * (a + 0.044715 * np.power(a, 3))))
+
+            return (
+                0.5
+                * a
+                * (
+                    1.0
+                    + mx.tanh(
+                        mx.array(np.sqrt(2.0 / np.pi)) * (a + 0.044715 * mx.power(a, 3))
+                    )
+                )
+            )
+        return (
+            0.5
+            * a
+            * (1.0 + np.tanh(np.sqrt(2.0 / np.pi) * (a + 0.044715 * np.power(a, 3))))
+        )
 
     @staticmethod
     def backward(ctx, grad):
         (a,) = ctx.saved_tensors
         import numpy as np
+
         if ctx.device == "gpu":
             import mlx.core as mx
+
             c1 = mx.array(np.sqrt(2.0 / np.pi))
             c2 = mx.array(0.044715)
             x_cube = mx.power(a, 3)
@@ -696,6 +759,7 @@ class GELU(Function):
             dinner = c1 * (1.0 + 3.0 * c2 * np.power(a, 2))
             return (grad * (0.5 * (1.0 + tanh_inner) + 0.5 * a * dtanh * dinner),)
 
+
 class Softmax(Function):
     @staticmethod
     def forward(ctx, a):
@@ -709,24 +773,29 @@ class Softmax(Function):
         sum_gy = backend.sum(grad * y, axis=-1, keepdims=True, device=ctx.device)
         return (y * (grad - sum_gy),)
 
+
 class Trace(Function):
     @staticmethod
     def forward(ctx, a):
         ctx.save_for_backward(a.shape)
         if ctx.device == "gpu":
             import mlx.core as mx
+
             return mx.trace(a)
         import numpy as np
+
         return np.trace(a)
 
     @staticmethod
     def backward(ctx, grad):
         (shape,) = ctx.saved_tensors
         import numpy as np
+
         grad_out = np.zeros(shape, dtype=np.float32)
         min_dim = min(shape[-2], shape[-1])
         if ctx.device == "gpu":
             import mlx.core as mx
+
             grad_out = mx.array(grad_out)
             for i in range(min_dim):
                 grad_out[..., i, i] = grad
@@ -735,49 +804,59 @@ class Trace(Function):
                 grad_out[..., i, i] = grad
         return (grad_out,)
 
+
 class AsStrided(Function):
     @staticmethod
     def forward(ctx, a, shape, strides, storage_offset):
         ctx.save_for_backward(a.shape, shape, strides, storage_offset)
         itemsize = a.itemsize if hasattr(a, "itemsize") else 4
         byte_strides = tuple(s * itemsize for s in strides)
-        
+
         if ctx.device == "gpu":
             import mlx.core as mx
-            
+
             # Simple fallback if mlx as_strided needs special handling
             flat_array = mx.flatten(a)
             if storage_offset > 0:
                 flat_array = flat_array[storage_offset:]
-            return mx.as_strided(flat_array, shape=shape, strides=byte_strides, storage_offset=0)
-            
+            return mx.as_strided(
+                flat_array, shape=shape, strides=byte_strides, storage_offset=0
+            )
+
         import numpy.lib.stride_tricks as np_stride_tricks
+
         flat_array = a.flatten()
         if storage_offset > 0:
             flat_array = flat_array[storage_offset:]
-        return np_stride_tricks.as_strided(flat_array, shape=shape, strides=byte_strides)
+        return np_stride_tricks.as_strided(
+            flat_array, shape=shape, strides=byte_strides
+        )
 
     @staticmethod
     def backward(ctx, grad):
         orig_shape, shape, strides, storage_offset = ctx.saved_tensors
         import numpy as np
+
         # Exact backward for as_strided is complex, falling back to primitive zeroing + accumulation
         grad_a = np.zeros(orig_shape, dtype=np.float32)
         flat_grad_a = grad_a.reshape(-1)
-        
+
         # This is a naive heuristic (since true general strided backward requires careful scatter_add)
         import itertools
         from energizer.backend import to_numpy
+
         np_grad = backend.to_numpy(grad, ctx.device)
-        
+
         ranges = [range(s) for s in shape]
         for it in itertools.product(*ranges):
             flat_idx = storage_offset + sum(i * s for i, s in zip(it, strides))
             flat_grad_a[flat_idx] += np_grad[it]
-            
+
         return (backend.array(grad_a, ctx.device), None, None, None)
 
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _unbroadcast_grad(grad, shape, device: str):
     """Sum out broadcasted dimensions so grad matches shape."""
@@ -785,15 +864,15 @@ def _unbroadcast_grad(grad, shape, device: str):
     g_shape = grad.shape if hasattr(grad, "shape") else ()
     if g_shape == shape:
         return grad
-    
+
     if len(shape) == 0:
         return backend.sum(grad, device=device)
-        
+
     ndim_diff = len(g_shape) - len(shape)
     if ndim_diff > 0:
         for _ in range(ndim_diff):
             grad = backend.sum(grad, axis=0, device=device)
-            
+
     g_shape = grad.shape if hasattr(grad, "shape") else ()
     for i, (g_dim, s_dim) in enumerate(zip(g_shape, shape)):
         if s_dim == 1 and g_dim > 1:
@@ -804,13 +883,16 @@ def _unbroadcast_grad(grad, shape, device: str):
         grad = grad.reshape(shape)
     else:
         import numpy as np
+
         grad = np.array(grad).reshape(shape)
-        
+
     return grad
+
 
 def _is_mlx(data) -> bool:
     try:
         import mlx.core as mx
+
         return isinstance(data, mx.array)
     except ImportError:
         return False
