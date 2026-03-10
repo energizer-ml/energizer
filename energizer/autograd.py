@@ -46,6 +46,28 @@ class Function:
         """
         # Find first tensor to infer device
         first_tensor = next(t for t in args if isinstance(t, Tensor))
+
+        from energizer.coreml.tracer import Tracer, TraceData, IRNode
+        if Tracer.is_tracing():
+            tracer = Tracer.get()
+            out_shape = Tracer.infer_shape(cls.__name__, *args)
+            inputs = []
+            for a in args:
+                if isinstance(a, Tensor):
+                    if hasattr(a, "_ir_node") and a._ir_node is not None:
+                        inputs.append(a._ir_node)
+                    else:
+                        inputs.append(a)
+                else:
+                    inputs.append(a)
+            
+            node = IRNode(cls.__name__, inputs, out_shape, "float32")
+            tracer.nodes.append(node)
+            
+            out = Tensor(TraceData(out_shape, "float32"), device=first_tensor.device)
+            out._ir_node = node
+            return out
+
         ctx = Context(device=first_tensor.device)
 
         # Run forward with raw arrays for Tensors, keep others as-is
@@ -143,7 +165,10 @@ class Tensor:
 
         # Always convert to the correct backend array type for this device.
         # This handles: plain lists, scalars, np.ndarray on gpu, mx.array on cpu.
-        if device == "gpu" and MLX_AVAILABLE:
+        from energizer.coreml.tracer import TraceData
+        if isinstance(data, TraceData):
+            pass
+        elif device == "gpu" and MLX_AVAILABLE:
             import mlx.core as mx_local
 
             if not isinstance(data, mx_local.array):

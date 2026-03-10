@@ -6,3 +6,4 @@ matplotlib
 torchvision
 mlx
 mlx-metal
+coremltools

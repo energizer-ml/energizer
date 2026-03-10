@@ -104,7 +104,7 @@ Example::
     optimizer.zero_grad()
 """
 
-__version_info__ = (0, 1, 5, 1)
+__version_info__ = (0, 1, 6)
 __version__ = ".".join(map(str, __version_info__))
 __author__ = "Florian GRIMA"
 __name__ = "energizer"
@@ -170,7 +170,7 @@ def no_grad():
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
-from .tensor import Tensor
+from .tensor import tensor, Tensor
 from .neural_network import Module, Optimizer
 
 # ---------------------------------------------------------------------------
@@ -249,3 +249,9 @@ from .layers.embedding import Embedding
 # Initializers
 # ---------------------------------------------------------------------------
 from .layers.init import zeros_, orthogonal_
+
+# ---------------------------------------------------------------------------
+# CoreML
+# ---------------------------------------------------------------------------
+from .coreml.tracer import Tracer, TraceData, IRNode
+from .coreml.transpiler import Transpiler, compile_to_coreml
