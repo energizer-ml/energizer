@@ -2,6 +2,9 @@ numpy
 mlx
 mlx-metal
 
+[coreml]
+coremltools>=8.0
+
 [dev]
 pytest
 torch
