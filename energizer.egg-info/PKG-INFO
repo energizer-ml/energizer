@@ -31,6 +31,8 @@ Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: torchvision; extra == "dev"
+Provides-Extra: coreml
+Requires-Dist: coremltools>=8.0; extra == "coreml"
 Dynamic: license-file
 
 # Energizer
