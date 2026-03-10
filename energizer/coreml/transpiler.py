@@ -4,6 +4,7 @@ from .tracer import Tracer, IRNode
 from ..tensor import Tensor
 import numpy as np
 
+
 class Transpiler:
     def __init__(self):
         self._op_mapping = {
@@ -22,7 +23,7 @@ class Transpiler:
         # Define the input specification based on the example input shape
         input_shape = example_inputs[0].shape
         input_spec = [mb.TensorSpec(shape=input_shape)]
-        
+
         @mb.program(input_specs=input_spec)
         def prog(x):
             # Maps energizer object ids to CoreML MIL variables
@@ -32,11 +33,13 @@ class Transpiler:
             for node in nodes:
                 op_translator = self._op_mapping.get(node.op)
                 if not op_translator:
-                    raise NotImplementedError(f"Transpilation for op '{node.op}' is not supported yet.")
-                
+                    raise NotImplementedError(
+                        f"Transpilation for op '{node.op}' is not supported yet."
+                    )
+
                 last_out = op_translator(node)
                 self.env[id(node)] = last_out
-                
+
             return last_out
 
         print(f"Converting traced program to CoreML...")
@@ -46,7 +49,9 @@ class Transpiler:
             print(f"Model successfully saved to {output_name}")
             return coreml_model
         except Exception as e:
-            print(f"CoreML Conversion Failed. Note: This could be due to Python 3.14 incompatibility with coremltools.")
+            print(
+                f"CoreML Conversion Failed. Note: This could be due to Python 3.14 incompatibility with coremltools."
+            )
             raise e
 
     def _get_input_var(self, inp):
@@ -66,10 +71,11 @@ class Transpiler:
         a = self._get_input_var(node.inputs[0])
         b = self._get_input_var(node.inputs[1])
         return mb.add(x=a, y=b)
-        
+
     def _translate_relu(self, node):
         x = self._get_input_var(node.inputs[0])
         return mb.relu(x=x)
+
 
 def compile_to_coreml(model, example_input, output_path="model.mlpackage"):
     transpiler = Transpiler()
