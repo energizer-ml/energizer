@@ -11,6 +11,8 @@ class Transpiler:
             "MatMul": self._translate_matmul,
             "Add": self._translate_add,
             "Maximum": self._translate_relu,
+            "Transpose": self._translate_transpose,
+            "Mul": self._translate_mul,
         }
 
     def transpile(self, model, example_inputs, output_name="model.mlpackage"):
@@ -75,6 +77,19 @@ class Transpiler:
     def _translate_relu(self, node):
         x = self._get_input_var(node.inputs[0])
         return mb.relu(x=x)
+
+    def _translate_transpose(self, node):
+        x = self._get_input_var(node.inputs[0])
+        # Find dimension logic based on shape
+        inp = node.inputs[0]
+        rank = len(inp.shape) if hasattr(inp, 'shape') else 1 # Fallback to 1 if scalar/unknown
+        perm = list(reversed(range(max(1, rank))))
+        return mb.transpose(x=x, perm=perm)
+
+    def _translate_mul(self, node):
+        x = self._get_input_var(node.inputs[0])
+        y = self._get_input_var(node.inputs[1])
+        return mb.multiply(x=x, y=y)
 
 
 def compile_to_coreml(model, example_input, output_path="model.mlpackage"):

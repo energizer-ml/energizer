@@ -22,7 +22,6 @@ class TraceData:
     @property
     def size(self):
         import numpy as np
-
         return int(np.prod(self.shape)) if self.shape else 1
 
 
@@ -31,6 +30,7 @@ class Tracer:
 
     def __init__(self):
         self.nodes = []
+        self._tensor_to_node: dict[int, IRNode] = {}  # id(Tensor) → IRNode that produced it
 
     def __enter__(self):
         Tracer._active = self
@@ -48,14 +48,34 @@ class Tracer:
         return cls._active
 
     def trace(self, model, example_inputs):
-        """
-        Run a forward pass with tracing enabled.
-        Returns an ordered list of IRNodes.
-        """
         self.nodes = []
+        self._tensor_to_node = {}
         with self:
             model(*example_inputs)
         return self.nodes
+
+    def record(self, op_name: str, input_tensors: list, result) -> IRNode:
+        """
+        Record one op into the IR graph.
+        Resolves each input: if it was produced by a previous op, store the IRNode
+        reference. Otherwise store the raw Tensor (weight / constant).
+        """
+        resolved_inputs = []
+        for t in input_tensors:
+            if id(t) in self._tensor_to_node:
+                resolved_inputs.append(self._tensor_to_node[id(t)])
+            else:
+                resolved_inputs.append(t)  # weight or constant
+
+        node = IRNode(
+            op=op_name,
+            inputs=resolved_inputs,
+            output_shape=result.shape,
+            output_dtype="float32",
+        )
+        self.nodes.append(node)
+        self._tensor_to_node[id(result)] = node
+        return node
 
     @classmethod
     def infer_shape(cls, op: str, *args):
@@ -70,32 +90,18 @@ class Tracer:
             elif isinstance(x, (int, float, complex, bool)):
                 shapes.append(())
             elif isinstance(x, (list, tuple)) and op not in (
-                "Reshape",
-                "AsStrided",
-                "SumAxis",
-                "Squeeze",
+                "Reshape", "AsStrided", "SumAxis", "Squeeze",
             ):
                 shapes.append(np.array(x).shape)
 
-        if op in (
-            "Add",
-            "Sub",
-            "Mul",
-            "Div",
-            "Minimum",
-            "Maximum",
-            "Pow",
-            "Minimum",
-            "Maximum",
-        ):
+        if op in ("Add", "Sub", "Mul", "Div", "Minimum", "Maximum", "Pow"):
             return np.broadcast_shapes(shapes[0], shapes[1])
 
         if op in ("Neg", "Exp", "Log", "Clamp", "Sigmoid", "Tanh", "GELU", "Softmax"):
             return shapes[0]
 
         if op == "MatMul":
-            shape_a = shapes[0]
-            shape_b = shapes[1]
+            shape_a, shape_b = shapes[0], shapes[1]
             if len(shape_a) == 0 or len(shape_b) == 0:
                 raise ValueError("MatMul requires at least 1D tensors")
             if len(shape_a) == 1 and len(shape_b) == 1:
@@ -114,8 +120,7 @@ class Tracer:
         if op == "SumAxis":
             axis = args[1]
             shape = list(shapes[0])
-            axes = [axis] if isinstance(axis, int) else list(axis)
-            for ax in sorted(axes, reverse=True):
+            for ax in sorted([axis] if isinstance(axis, int) else list(axis), reverse=True):
                 shape.pop(ax)
             return tuple(shape)
 
@@ -124,8 +129,7 @@ class Tracer:
             shape = list(shapes[0])
             if axis is None:
                 return tuple(s for s in shape if s != 1)
-            axes = [axis] if isinstance(axis, int) else list(axis)
-            for ax in sorted(axes, reverse=True):
+            for ax in sorted([axis] if isinstance(axis, int) else list(axis), reverse=True):
                 if shape[ax] == 1:
                     shape.pop(ax)
             return tuple(shape)
@@ -143,14 +147,11 @@ class Tracer:
             return tuple(reversed(shapes[0]))
 
         if op == "GetItem":
-            key = args[1]
-            dummy = np.empty(shapes[0], dtype=np.float32)[key]
+            dummy = np.empty(shapes[0], dtype=np.float32)[args[1]]
             return dummy.shape
 
         if op == "Trace":
-            if len(shapes[0]) < 2:
-                return ()
-            return shapes[0][:-2]
+            return shapes[0][:-2] if len(shapes[0]) >= 2 else ()
 
         if op == "AsStrided":
             return args[1]
