@@ -46,7 +46,7 @@ class Function:
         """
         first_tensor = next(t for t in args if isinstance(t, Tensor))
 
-        from energizer.coreml.tracer import Tracer, TraceData, IRNode
+        from energizer.backpack.compiler.tracer import Tracer, TraceData, IRNode
 
         if Tracer.is_tracing():
             tracer = Tracer.get()
@@ -162,7 +162,7 @@ class Tensor:
 
         # Always convert to the correct backend array type for this device.
         # This handles: plain lists, scalars, np.ndarray on gpu, mx.array on cpu.
-        from energizer.coreml.tracer import TraceData
+        from energizer.backpack.compiler.tracer import TraceData
 
         if isinstance(data, TraceData):
             pass

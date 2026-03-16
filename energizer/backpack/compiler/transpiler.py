@@ -1,7 +1,7 @@
 import coremltools as ct
 from coremltools.converters.mil import Builder as mb
 from .tracer import Tracer, IRNode
-from ..tensor import Tensor
+from energizer.tensor import Tensor
 import numpy as np
 
 

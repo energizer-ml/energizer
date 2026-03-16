@@ -249,9 +249,3 @@ from .layers.embedding import Embedding
 # Initializers
 # ---------------------------------------------------------------------------
 from .layers.init import zeros_, orthogonal_
-
-# ---------------------------------------------------------------------------
-# CoreML
-# ---------------------------------------------------------------------------
-from .coreml.tracer import Tracer, TraceData, IRNode
-from .coreml.transpiler import Transpiler, compile_to_coreml
