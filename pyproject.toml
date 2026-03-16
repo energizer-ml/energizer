@@ -29,6 +29,7 @@ dependencies = [
     "numpy",
     "mlx",
     "mlx-metal",
+    "coremltools>=8.0",
 ]
 
 [project.optional-dependencies]
