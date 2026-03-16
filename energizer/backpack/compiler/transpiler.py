@@ -82,7 +82,9 @@ class Transpiler:
         x = self._get_input_var(node.inputs[0])
         # Find dimension logic based on shape
         inp = node.inputs[0]
-        rank = len(inp.shape) if hasattr(inp, 'shape') else 1 # Fallback to 1 if scalar/unknown
+        rank = (
+            len(inp.shape) if hasattr(inp, "shape") else 1
+        )  # Fallback to 1 if scalar/unknown
         perm = list(reversed(range(max(1, rank))))
         return mb.transpose(x=x, perm=perm)
 

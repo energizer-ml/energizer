@@ -24,8 +24,8 @@ import numpy as np
 from dataclasses import dataclass, field
 from typing import Optional, Union
 
-
 # ── Types ─────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class RunnerConfig:
@@ -52,9 +52,10 @@ class RunnerConfig:
 @dataclass
 class RunStats:
     """Accumulated statistics for a runner session."""
-    calls:           int   = 0
-    total_ms:        float = 0.0
-    latencies_ms:    list  = field(default_factory=list)
+
+    calls: int = 0
+    total_ms: float = 0.0
+    latencies_ms: list = field(default_factory=list)
 
     @property
     def avg_ms(self) -> float:
@@ -72,8 +73,8 @@ class RunStats:
         return s[int(len(s) * 0.99)]
 
     def record(self, ms: float, window: int):
-        self.calls      += 1
-        self.total_ms   += ms
+        self.calls += 1
+        self.total_ms += ms
         self.latencies_ms.append(ms)
         if len(self.latencies_ms) > window:
             self.latencies_ms.pop(0)
@@ -88,6 +89,7 @@ class RunStats:
 
 
 # ── Runner ────────────────────────────────────────────────────────────────────
+
 
 class Runner:
     """
@@ -104,10 +106,10 @@ class Runner:
         model_path: str,
         config: Optional[RunnerConfig] = None,
     ):
-        self._path   = model_path
+        self._path = model_path
         self._config = config or RunnerConfig()
-        self._model  = None
-        self._input_name: str  = ""
+        self._model = None
+        self._input_name: str = ""
         self._output_name: str = ""
         self._input_shape: tuple = ()
         self.stats = RunStats()
@@ -128,16 +130,16 @@ class Runner:
 
         # Map config string to CoreML compute units enum
         cu_map = {
-            "ALL":         ct.ComputeUnit.ALL,
+            "ALL": ct.ComputeUnit.ALL,
             "CPU_AND_GPU": ct.ComputeUnit.CPU_AND_GPU,
-            "CPU_ONLY":    ct.ComputeUnit.CPU_ONLY,
+            "CPU_ONLY": ct.ComputeUnit.CPU_ONLY,
         }
         cu = cu_map.get(self._config.compute_units.upper(), ct.ComputeUnit.ALL)
 
         self._model = ct.models.MLModel(self._path, compute_units=cu)
 
         spec = self._model.get_spec()
-        self._input_name  = spec.description.input[0].name
+        self._input_name = spec.description.input[0].name
         self._output_name = spec.description.output[0].name
 
         # Infer input shape from spec
@@ -147,8 +149,10 @@ class Runner:
 
         # Warm-up: run dummy passes to burn CoreML's JIT compilation
         if self._config.warmup_runs > 0 and self._input_shape:
-            dummy = np.zeros(self._input_shape, dtype=np.float16
-                             if self._config.fp16_inputs else np.float32)
+            dummy = np.zeros(
+                self._input_shape,
+                dtype=np.float16 if self._config.fp16_inputs else np.float32,
+            )
             for _ in range(self._config.warmup_runs):
                 self._model.predict({self._input_name: dummy})
 
@@ -165,9 +169,9 @@ class Runner:
         else:
             x = x.astype(np.float32)
 
-        t0     = time.perf_counter()
+        t0 = time.perf_counter()
         result = self._model.predict({self._input_name: x})
-        ms     = (time.perf_counter() - t0) * 1000.0
+        ms = (time.perf_counter() - t0) * 1000.0
 
         if self._config.track_latency:
             self.stats.record(ms, self._config.latency_window)
@@ -240,7 +244,7 @@ class Runner:
         latencies.sort()
         n = len(latencies)
         return {
-            "runs":   n,
+            "runs": n,
             "avg_ms": sum(latencies) / n,
             "min_ms": latencies[0],
             "max_ms": latencies[-1],
@@ -291,6 +295,7 @@ class Runner:
 
 # ── Module-level convenience ──────────────────────────────────────────────────
 
+
 def load(
     path: str,
     compute_units: str = "ALL",
@@ -316,8 +321,12 @@ def load(
         output = model(input_tensor)
         print(model.stats)
     """
-    return Runner.load(path, compute_units=compute_units,
-                       fp16_inputs=fp16_inputs, warmup_runs=warmup_runs)
+    return Runner.load(
+        path,
+        compute_units=compute_units,
+        fp16_inputs=fp16_inputs,
+        warmup_runs=warmup_runs,
+    )
 
 
 def benchmark(

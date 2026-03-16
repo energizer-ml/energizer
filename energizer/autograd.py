@@ -74,7 +74,9 @@ class Function:
         raw_out = cls.forward(ctx, *raw_inputs)
 
         requires_grad = any(getattr(t, "requires_grad", False) for t in args)
-        result = Tensor(raw_out, device=first_tensor.device, requires_grad=requires_grad)
+        result = Tensor(
+            raw_out, device=first_tensor.device, requires_grad=requires_grad
+        )
 
         if requires_grad:
             result._node = GraphNode(

@@ -22,6 +22,7 @@ class TraceData:
     @property
     def size(self):
         import numpy as np
+
         return int(np.prod(self.shape)) if self.shape else 1
 
 
@@ -30,7 +31,9 @@ class Tracer:
 
     def __init__(self):
         self.nodes = []
-        self._tensor_to_node: dict[int, IRNode] = {}  # id(Tensor) → IRNode that produced it
+        self._tensor_to_node: dict[int, IRNode] = (
+            {}
+        )  # id(Tensor) → IRNode that produced it
 
     def __enter__(self):
         Tracer._active = self
@@ -90,7 +93,10 @@ class Tracer:
             elif isinstance(x, (int, float, complex, bool)):
                 shapes.append(())
             elif isinstance(x, (list, tuple)) and op not in (
-                "Reshape", "AsStrided", "SumAxis", "Squeeze",
+                "Reshape",
+                "AsStrided",
+                "SumAxis",
+                "Squeeze",
             ):
                 shapes.append(np.array(x).shape)
 
@@ -120,7 +126,9 @@ class Tracer:
         if op == "SumAxis":
             axis = args[1]
             shape = list(shapes[0])
-            for ax in sorted([axis] if isinstance(axis, int) else list(axis), reverse=True):
+            for ax in sorted(
+                [axis] if isinstance(axis, int) else list(axis), reverse=True
+            ):
                 shape.pop(ax)
             return tuple(shape)
 
@@ -129,7 +137,9 @@ class Tracer:
             shape = list(shapes[0])
             if axis is None:
                 return tuple(s for s in shape if s != 1)
-            for ax in sorted([axis] if isinstance(axis, int) else list(axis), reverse=True):
+            for ax in sorted(
+                [axis] if isinstance(axis, int) else list(axis), reverse=True
+            ):
                 if shape[ax] == 1:
                     shape.pop(ax)
             return tuple(shape)
