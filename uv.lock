@@ -97,9 +97,10 @@ wheels = [
 
 [[package]]
 name = "energizer"
-version = "0.1.6a0"
+version = "0.1.6a1"
 source = { editable = "." }
 dependencies = [
+    { name = "coremltools" },
     { name = "mlx" },
     { name = "mlx-metal" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -122,6 +123,7 @@ gpu = [
 
 [package.metadata]
 requires-dist = [
+    { name = "coremltools", specifier = ">=8.0" },
     { name = "coremltools", marker = "extra == 'coreml'", specifier = ">=8.0" },
     { name = "mlx" },
     { name = "mlx", marker = "extra == 'gpu'" },

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: energizer
-Version: 0.1.6
+Version: 0.1.6a0
 Summary: A lightweight deep learning library for Apple's Neural Engine.
 Author-email: Florian GRIMA <florian.grima@epitech.eu>
 License-Expression: MIT
@@ -24,6 +24,7 @@ License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: mlx
 Requires-Dist: mlx-metal
+Requires-Dist: coremltools>=8.0
 Provides-Extra: gpu
 Requires-Dist: mlx; extra == "gpu"
 Requires-Dist: mlx-metal; extra == "gpu"
