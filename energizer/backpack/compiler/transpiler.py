@@ -13,6 +13,8 @@ class Transpiler:
             "Maximum": self._translate_relu,
             "Transpose": self._translate_transpose,
             "Mul": self._translate_mul,
+            "Sigmoid": self._translate_sigmoid,
+            "ReLU": self._translate_relu,
         }
 
     def transpile(self, model, example_inputs, output_name="model.mlpackage"):
@@ -92,6 +94,14 @@ class Transpiler:
         x = self._get_input_var(node.inputs[0])
         y = self._get_input_var(node.inputs[1])
         return mb.multiply(x=x, y=y)
+
+    def _translate_sigmoid(self, node):
+        x = self._get_input_var(node.inputs[0])
+        return mb.sigmoid(x=x)
+
+    def _translate_relu(self, node):
+        x = self._get_input_var(node.inputs[0])
+        return mb.relu(x=x)
 
 
 def compile_to_coreml(model, example_input, output_path="model.mlpackage"):

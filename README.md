@@ -40,7 +40,7 @@ For development:
 pip install "energizer[dev]"
 ```
 
-**Requirements:** Python ≥ 3.10
+**Requirements:** Python 3.10, 3.11, or 3.12 (Maximum 3.12 required for `coremltools` support)
 
 ---
 
