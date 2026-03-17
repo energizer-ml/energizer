@@ -14,6 +14,11 @@ energizer.egg-info/SOURCES.txt
 energizer.egg-info/dependency_links.txt
 energizer.egg-info/requires.txt
 energizer.egg-info/top_level.txt
+energizer/backpack/__init__.py
+energizer/backpack/monitor.py
+energizer/backpack/runner.py
+energizer/backpack/compiler/tracer.py
+energizer/backpack/compiler/transpiler.py
 energizer/layers/autoencoder.py
 energizer/layers/batch_norm.py
 energizer/layers/conv.py
@@ -44,3 +49,4 @@ tests/test_conv1d.py
 tests/test_linear.py
 tests/test_maxpool2d.py
 tests/test_operators.py
+tests/test_tracer.py

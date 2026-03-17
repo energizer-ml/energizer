@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "energizer"
-version = "0.1.5.1"
+version = "0.1.6.1"
 description = "A lightweight deep learning library for Apple's Neural Engine."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.10, <3.13"
 authors = [
     { name = "Florian GRIMA", email = "florian.grima@epitech.eu" },
 ]
@@ -21,19 +21,19 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     "numpy",
     "mlx",
     "mlx-metal",
+    "coremltools>=8.0",
 ]
 
 [project.optional-dependencies]
 gpu = ["mlx", "mlx-metal"]
 dev = ["pytest", "torch", "torchvision"]
+coreml = ["coremltools>=8.0"]
 
 [project.urls]
 Homepage = "https://github.com/fgrimaepitech/energizer"

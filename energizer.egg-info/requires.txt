@@ -1,6 +1,10 @@
 numpy
 mlx
 mlx-metal
+coremltools>=8.0
+
+[coreml]
+coremltools>=8.0
 
 [dev]
 pytest

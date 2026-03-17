@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: energizer
-Version: 0.1.5
+Version: 0.1.6a1
 Summary: A lightweight deep learning library for Apple's Neural Engine.
 Author-email: Florian GRIMA <florian.grima@epitech.eu>
 License-Expression: MIT
@@ -15,15 +15,14 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.10
+Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: mlx
 Requires-Dist: mlx-metal
+Requires-Dist: coremltools>=8.0
 Provides-Extra: gpu
 Requires-Dist: mlx; extra == "gpu"
 Requires-Dist: mlx-metal; extra == "gpu"
@@ -31,6 +30,8 @@ Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: torchvision; extra == "dev"
+Provides-Extra: coreml
+Requires-Dist: coremltools>=8.0; extra == "coreml"
 Dynamic: license-file
 
 # Energizer
@@ -75,7 +76,7 @@ For development:
 pip install "energizer[dev]"
 ```
 
-**Requirements:** Python ≥ 3.10
+**Requirements:** Python 3.10, 3.11, or 3.12 (Maximum 3.12 required for `coremltools` support)
 
 ---
 

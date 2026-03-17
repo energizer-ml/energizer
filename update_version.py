@@ -30,20 +30,17 @@ def main():
     init_path = Path("energizer/__init__.py")
     if init_path.exists():
         content = init_path.read_text()
-        # Convert version string to tuple representation
-        version_parts = new_version.split('.')
-        version_tuple_str = ', '.join(version_parts)
         new_content = re.sub(
-            r'(?m)^__version_info__\s*=\s*\(.*\)$', 
-            f'__version_info__ = ({version_tuple_str})', 
+            r'(?m)^__version__\s*=\s*".*"$', 
+            f'__version__ = "{new_version}"', 
             content, 
             count=1
         )
         if content == new_content:
-            print("Warning: Could not find __version_info__ in energizer/__init__.py to update.")
+            print("Warning: Could not find __version__ in energizer/__init__.py to update.")
         else:
             init_path.write_text(new_content)
-            print(f"Updated energizer/__init__.py __version_info__ to ({version_tuple_str})")
+            print(f"Updated energizer/__init__.py to version {new_version}")
     else:
         print("Error: energizer/__init__.py not found.")
         sys.exit(1)
