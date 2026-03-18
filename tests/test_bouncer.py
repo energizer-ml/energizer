@@ -54,7 +54,9 @@ def test_bouncer_fuses_attention_pattern_and_drops_dead_nodes():
     v = object()
     kt = IRNode("Transpose", [k], (1, 8, 8), "float32")
     scores = IRNode("MatMul", [q, kt], (1, 8, 8), "float32")
-    scaled = IRNode("Mul", [scores, np.array(0.5, dtype=np.float32)], (1, 8, 8), "float32")
+    scaled = IRNode(
+        "Mul", [scores, np.array(0.5, dtype=np.float32)], (1, 8, 8), "float32"
+    )
     weights = IRNode("Softmax", [scaled], (1, 8, 8), "float32")
     out = IRNode("MatMul", [weights, v], (1, 8, 16), "float32")
 
@@ -73,7 +75,9 @@ def test_bouncer_fuses_masked_attention_pattern():
     mask = object()
     kt = IRNode("Transpose", [k], (1, 8, 8), "float32")
     scores = IRNode("MatMul", [q, kt], (1, 8, 8), "float32")
-    scaled = IRNode("Mul", [scores, np.array(0.125, dtype=np.float32)], (1, 8, 8), "float32")
+    scaled = IRNode(
+        "Mul", [scores, np.array(0.125, dtype=np.float32)], (1, 8, 8), "float32"
+    )
     masked = IRNode("Add", [scaled, mask], (1, 8, 8), "float32")
     weights = IRNode("Softmax", [masked], (1, 8, 8), "float32")
     out = IRNode("MatMul", [weights, v], (1, 8, 16), "float32")

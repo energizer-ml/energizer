@@ -116,7 +116,9 @@ class Bouncer:
         attrs = dict(node.attrs)
         attrs.setdefault("ane_preferred", node.op in self.ANE_FRIENDLY_OPS)
         attrs.setdefault("precision", "fp16" if self.config.prefer_fp16 else "fp32")
-        return IRNode(node.op, list(node.inputs), node.output_shape, node.output_dtype, attrs)
+        return IRNode(
+            node.op, list(node.inputs), node.output_shape, node.output_dtype, attrs
+        )
 
     def _eliminate_dead_code(self, nodes: list[IRNode]) -> list[IRNode]:
         if not nodes:
@@ -198,12 +200,16 @@ class Bouncer:
             return None
 
         left, right = node.inputs
-        if isinstance(left, IRNode) and left.op == "Sigmoid" and self._same_source(
-            left.inputs[0], right
+        if (
+            isinstance(left, IRNode)
+            and left.op == "Sigmoid"
+            and self._same_source(left.inputs[0], right)
         ):
             x = right
-        elif isinstance(right, IRNode) and right.op == "Sigmoid" and self._same_source(
-            right.inputs[0], left
+        elif (
+            isinstance(right, IRNode)
+            and right.op == "Sigmoid"
+            and self._same_source(right.inputs[0], left)
         ):
             x = left
         else:
@@ -230,14 +236,22 @@ class Bouncer:
         attn_mask = None
         scores = attn_weights.inputs[0]
 
-        if isinstance(scores, IRNode) and scores.op == "Add" and len(scores.inputs) == 2:
+        if (
+            isinstance(scores, IRNode)
+            and scores.op == "Add"
+            and len(scores.inputs) == 2
+        ):
             left, right = scores.inputs
             if self._looks_like_attention_scores(left):
                 scores, attn_mask = left, right
             elif self._looks_like_attention_scores(right):
                 scores, attn_mask = right, left
 
-        if isinstance(scores, IRNode) and scores.op in {"Mul", "Div"} and len(scores.inputs) == 2:
+        if (
+            isinstance(scores, IRNode)
+            and scores.op in {"Mul", "Div"}
+            and len(scores.inputs) == 2
+        ):
             scale_op = scores.op
             left, right = scores.inputs
             if self._is_const(left):
@@ -255,7 +269,11 @@ class Bouncer:
                     else:
                         scale = np.float32(1.0 / const_scalar)
 
-        if not isinstance(scores, IRNode) or scores.op != "MatMul" or len(scores.inputs) != 2:
+        if (
+            not isinstance(scores, IRNode)
+            or scores.op != "MatMul"
+            or len(scores.inputs) != 2
+        ):
             return None
 
         query, key = scores.inputs

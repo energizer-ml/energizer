@@ -45,7 +45,9 @@ def test_transpiler_bounces_short_mlp_to_ane_friendly_ops(tmp_path):
     assert package_path.exists()
 
 
-@pytest.mark.skipif(platform.system() != "Darwin", reason="CoreML runtime requires macOS")
+@pytest.mark.skipif(
+    platform.system() != "Darwin", reason="CoreML runtime requires macOS"
+)
 def test_runner_uses_ane_oriented_runtime_settings_for_short_mlp():
     model = ShortMLP()
     example = Tensor.randn(1, 16)

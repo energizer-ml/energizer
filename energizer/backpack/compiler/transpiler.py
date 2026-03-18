@@ -7,7 +7,9 @@ import numpy as np
 
 
 class Transpiler:
-    def __init__(self, optimize_for_ane: bool = True, bouncer_config: BouncerConfig | None = None):
+    def __init__(
+        self, optimize_for_ane: bool = True, bouncer_config: BouncerConfig | None = None
+    ):
         self.optimize_for_ane = optimize_for_ane
         self.bouncer = Bouncer(bouncer_config) if optimize_for_ane else None
         self._op_mapping = {
