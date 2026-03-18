@@ -1,7 +1,7 @@
 from energizer import tensor
 from energizer.neural_network import Module, Parameter
 import numpy as np
-import mlx.core as mx
+from energizer._mlx import mx
 
 
 class Linear(Module):

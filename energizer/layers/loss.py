@@ -2,11 +2,7 @@ from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import energizer.autograd as autograd
 import numpy as np
-
-try:
-    import mlx.core as mx
-except ImportError:
-    mx = None
+from energizer._mlx import mx
 
 
 class MSELoss(Module):
