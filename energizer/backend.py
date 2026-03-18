@@ -7,14 +7,7 @@ Backends:
 """
 
 import numpy as np
-
-try:
-    import mlx.core as mx
-
-    MLX_AVAILABLE = True
-except ImportError:
-    mx = None
-    MLX_AVAILABLE = False
+from energizer._mlx import mx, MLX_AVAILABLE
 
 
 class Backend:

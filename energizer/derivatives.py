@@ -2,11 +2,7 @@ from __future__ import annotations
 from typing import Any
 import energizer.tensor as ts
 import numpy as np
-
-try:
-    import mlx.core as mx
-except ImportError:
-    mx = None
+from energizer._mlx import mx
 
 
 def _reduce_grad_to_shape(grad: Any, shape: tuple) -> Any:

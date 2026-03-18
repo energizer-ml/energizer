@@ -1,7 +1,7 @@
 from energizer.neural_network import Module, Parameter
 from energizer.tensor import Tensor
-import mlx.core as mx
 import numpy as np
+from energizer._mlx import mx
 
 
 class Embedding(Module):

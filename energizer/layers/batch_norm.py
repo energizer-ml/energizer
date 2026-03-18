@@ -1,11 +1,7 @@
 from energizer.neural_network import Module, Parameter
 from energizer.tensor import Tensor
 import numpy as np
-
-try:
-    import mlx.core as mx
-except ImportError:
-    mx = None
+from energizer._mlx import mx
 
 
 class BatchNorm1d(Module):

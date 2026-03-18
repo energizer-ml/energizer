@@ -2,6 +2,7 @@ LICENSE
 README.md
 pyproject.toml
 energizer/__init__.py
+energizer/_mlx.py
 energizer/autograd.py
 energizer/backend.py
 energizer/derivatives.py
@@ -17,6 +18,7 @@ energizer.egg-info/top_level.txt
 energizer/backpack/__init__.py
 energizer/backpack/monitor.py
 energizer/backpack/runner.py
+energizer/backpack/compiler/bouncer.py
 energizer/backpack/compiler/tracer.py
 energizer/backpack/compiler/transpiler.py
 energizer/layers/autoencoder.py
@@ -45,6 +47,9 @@ energizer/optimizer/adam.py
 energizer/optimizer/sgd.py
 tests/test_as_strided.py
 tests/test_avgpool2d.py
+tests/test_backpack_extended_integration.py
+tests/test_backpack_integration.py
+tests/test_bouncer.py
 tests/test_conv1d.py
 tests/test_linear.py
 tests/test_maxpool2d.py

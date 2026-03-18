@@ -2,14 +2,25 @@ from typing import Any
 
 
 class IRNode:
-    def __init__(self, op: str, inputs: list, output_shape: tuple, output_dtype: str):
+    def __init__(
+        self,
+        op: str,
+        inputs: list,
+        output_shape: tuple,
+        output_dtype: str,
+        attrs: dict | None = None,
+    ):
         self.op = op
         self.inputs = inputs
         self.output_shape = output_shape
         self.output_dtype = output_dtype
+        self.attrs = attrs or {}
 
     def __repr__(self):
-        return f"IRNode(op='{self.op}', inputs={len(self.inputs)}, shape={self.output_shape}, dtype='{self.output_dtype}')"
+        return (
+            f"IRNode(op='{self.op}', inputs={len(self.inputs)}, "
+            f"shape={self.output_shape}, dtype='{self.output_dtype}', attrs={self.attrs})"
+        )
 
 
 class TraceData:
