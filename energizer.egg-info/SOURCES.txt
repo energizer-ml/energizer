@@ -49,6 +49,7 @@ tests/test_as_strided.py
 tests/test_avgpool2d.py
 tests/test_backpack_extended_integration.py
 tests/test_backpack_integration.py
+tests/test_backpack_transformer_ir.py
 tests/test_bouncer.py
 tests/test_conv1d.py
 tests/test_linear.py

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: energizer
-Version: 0.1.6.2
+Version: 0.1.7
 Summary: A lightweight deep learning library for Apple's Neural Engine.
 Author-email: Florian GRIMA <florian.grima@epitech.eu>
 License-Expression: MIT
