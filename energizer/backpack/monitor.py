@@ -4,8 +4,8 @@ BACKPACK — Apple Silicon Power Monitor
 Tracks CPU · GPU · ANE power in real time via powermetrics.
 
 Usage:
-    sudo python3 backpack_monitor.py
-    sudo python3 backpack_monitor.py -i 250
+    python -m energizer.backpack.monitor
+    python -m energizer.backpack.monitor -i 250
 
 Keybinds:
     q   Quit

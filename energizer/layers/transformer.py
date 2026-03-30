@@ -2,8 +2,8 @@ from typing import Callable, Union
 from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import energizer
-import mlx.core as mx
 import numpy as np
+from energizer._mlx import mx
 
 
 class MultiheadAttention(Module):

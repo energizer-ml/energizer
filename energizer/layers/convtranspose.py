@@ -1,8 +1,8 @@
 from energizer.neural_network import Module, Parameter
 import energizer
 import numpy as np
-import mlx.core as mx
 from energizer.tensor import Tensor
+from energizer._mlx import mx
 
 
 class ConvTranspose2d(Module):

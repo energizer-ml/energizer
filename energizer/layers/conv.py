@@ -2,8 +2,8 @@ from energizer.function import Function
 from energizer.neural_network import Module, Parameter
 from energizer.tensor import Tensor
 import numpy as np
-import mlx.core as mx
 import energizer.functionnal as F
+from energizer._mlx import mx
 
 
 class ConvNd(Module):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any
 import numpy as np
-import mlx.core as mx
+from energizer._mlx import mx
 
 
 def _get_data_ref(x: Any):

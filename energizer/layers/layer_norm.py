@@ -1,7 +1,7 @@
 from energizer.neural_network import Module
 from energizer.tensor import Tensor
 import numpy as np
-import mlx.core as mx
+from energizer._mlx import mx
 
 
 class LayerNorm(Module):
