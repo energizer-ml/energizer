@@ -61,6 +61,7 @@ tests/test_conv1d.py
 tests/test_distributed.py
 tests/test_distributed_monitor.py
 tests/test_linear.py
+tests/test_local_monitor_single_node.py
 tests/test_maxpool2d.py
 tests/test_operators.py
 tests/test_tracer.py
