@@ -21,6 +21,12 @@ energizer/backpack/runner.py
 energizer/backpack/compiler/bouncer.py
 energizer/backpack/compiler/tracer.py
 energizer/backpack/compiler/transpiler.py
+energizer/distributed/__init__.py
+energizer/distributed/comm.py
+energizer/distributed/monitor.py
+energizer/distributed/parallel.py
+energizer/distributed/telemetry.py
+energizer/distributed/world.py
 energizer/layers/autoencoder.py
 energizer/layers/batch_norm.py
 energizer/layers/conv.py
@@ -52,6 +58,8 @@ tests/test_backpack_integration.py
 tests/test_backpack_transformer_ir.py
 tests/test_bouncer.py
 tests/test_conv1d.py
+tests/test_distributed.py
+tests/test_distributed_monitor.py
 tests/test_linear.py
 tests/test_maxpool2d.py
 tests/test_operators.py

@@ -4,9 +4,9 @@ Version: 0.1.7
 Summary: A lightweight deep learning library for Apple's Neural Engine.
 Author-email: Florian GRIMA <florian.grima@epitech.eu>
 License-Expression: MIT
-Project-URL: Homepage, https://github.com/fgrimaepitech/energizer
-Project-URL: Repository, https://github.com/fgrimaepitech/energizer
-Project-URL: Issues, https://github.com/fgrimaepitech/energizer/issues
+Project-URL: Homepage, https://github.com/energizer-ml/energizer
+Project-URL: Repository, https://github.com/energizer-ml/energizer
+Project-URL: Issues, https://github.com/energizer-ml/energizer/issues
 Keywords: deep-learning,neural-engine,machine-learning,mlx,apple
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -41,7 +41,7 @@ Dynamic: license-file
 [![PyPI version](https://img.shields.io/pypi/v/energizer)](https://pypi.org/project/energizer/)
 [![Python](https://img.shields.io/pypi/pyversions/energizer)](https://pypi.org/project/energizer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Lint](https://github.com/fgrimaepitech/energizer/actions/workflows/lint.yml/badge.svg)](https://github.com/fgrimaepitech/energizer/actions/workflows/lint.yml)
+[![Lint](https://github.com/energizer-ml/energizer/actions/workflows/lint.yml/badge.svg)](https://github.com/energizer-ml/energizer/actions/workflows/lint.yml)
 
 Energizer provides a familiar, PyTorch-style API for building and training neural networks with **first-class support for Apple Silicon** via the [MLX](https://github.com/ml-explore/mlx) backend. It falls back to NumPy on CPU, making it suitable for prototyping on any platform.
 
@@ -366,4 +366,4 @@ MIT — see [LICENSE](LICENSE).
 ## Author
 
 **Florian GRIMA** — [florian.grima@epitech.eu](mailto:florian.grima@epitech.eu)  
-[GitHub](https://github.com/fgrimaepitech) · [PyPI](https://pypi.org/project/energizer/) · [Issues](https://github.com/fgrimaepitech/energizer/issues)
+[GitHub](https://github.com/fgrimaepitech) · [PyPI](https://pypi.org/project/energizer/) · [Issues](https://github.com/energizer-ml/energizer/issues)
