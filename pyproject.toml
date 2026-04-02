@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "energizer"
-version = "0.1.7"
+version = "0.1.8a1"
 description = "A lightweight deep learning library for Apple's Neural Engine."
 readme = "README.md"
 license = "MIT"
@@ -36,9 +36,9 @@ dev = ["pytest", "torch", "torchvision"]
 coreml = ["coremltools>=8.0"]
 
 [project.urls]
-Homepage = "https://github.com/fgrimaepitech/energizer"
-Repository = "https://github.com/fgrimaepitech/energizer"
-Issues = "https://github.com/fgrimaepitech/energizer/issues"
+Homepage = "https://github.com/energizer-ml/energizer"
+Repository = "https://github.com/energizer-ml/energizer"
+Issues = "https://github.com/energizer-ml/energizer/issues"
 
 [tool.setuptools.packages.find]
 include = ["energizer*"]
