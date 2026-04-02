@@ -10,7 +10,6 @@ from typing import Any
 import numpy as np
 
 from energizer.backend import backend
-from energizer.distributed.telemetry import TelemetryClient
 
 
 _HEADER = struct.Struct("!Q")
@@ -69,7 +68,6 @@ class World:
         port: int,
         sockets: dict[int, socket.socket],
         listener: socket.socket | None = None,
-        telemetry: TelemetryClient | None = None,
     ):
         self.rank = rank
         self.size = world_size
@@ -79,7 +77,6 @@ class World:
         self.coordinator_rank = 0
         self._sockets = sockets
         self._listener = listener
-        self.telemetry = telemetry
         self._lock = threading.Lock()
         self._sequence = 0
 
@@ -107,19 +104,8 @@ class World:
         if rank < 0 or rank >= world_size:
             raise ValueError("rank must be in [0, world_size)")
 
-        telemetry = None
-        if monitor_addr is not None and monitor_port is not None:
-            telemetry = TelemetryClient(
-                monitor_addr,
-                monitor_port,
-                rank=rank,
-                world_size=world_size,
-                node_name=node_name,
-                timeout=timeout,
-            )
-
         if world_size == 1:
-            world = cls(rank, world_size, addr, port, sockets={}, telemetry=telemetry)
+            world = cls(rank, world_size, addr, port, sockets={})
             world._emit(
                 "world_init",
                 {"addr": addr, "port": port, "coordinator_rank": world.coordinator_rank},
@@ -160,7 +146,6 @@ class World:
                 port,
                 sockets=sockets,
                 listener=listener,
-                telemetry=telemetry,
             )
             world._emit(
                 "world_init",
@@ -187,7 +172,6 @@ class World:
                     addr,
                     port,
                     sockets={0: conn},
-                    telemetry=telemetry,
                 )
                 world._emit(
                     "world_init",
@@ -210,13 +194,8 @@ class World:
         self._sequence += 1
         return tag
 
-    def _emit(self, event: str, data: dict | None = None) -> None:
-        if self.telemetry is None:
-            return
-        self.telemetry.emit(event, data)
-
     def report(self, event: str, data: dict | None = None) -> None:
-        self._emit(event, data)
+        pass
 
     def allreduce(self, value):
         if self.world_size == 1:
@@ -328,6 +307,4 @@ class World:
             except OSError:
                 pass
             self._listener = None
-        if self.telemetry is not None:
-            self.telemetry.close()
         

@@ -245,9 +245,6 @@ from .layers.loss import MSELoss, CrossEntropyLoss
 from .distributed import (
     World,
     DataParallel,
-    TelemetryClient,
-    TelemetryServer,
-    serve_monitor,
     allreduce,
 )
 
