@@ -248,3 +248,22 @@ from .layers.embedding import Embedding
 # Initializers
 # ---------------------------------------------------------------------------
 from .layers.init import zeros_, orthogonal_
+
+# ---------------------------------------------------------------------------
+# Parallelism
+# ---------------------------------------------------------------------------
+from .parallel import (
+    AllToShardedLinear,
+    DeviceGroup,
+    ShardedTensor,
+    ShardedToAllLinear,
+    all_sum,
+    average_gradients,
+    data_parallel_step,
+    gather,
+    init_device_group,
+    shard,
+    shard_inplace,
+    shard_linear,
+    split_batch,
+)
