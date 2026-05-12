@@ -45,6 +45,11 @@ energizer/layers/transformer.py
 energizer/layers/trim.py
 energizer/optimizer/adam.py
 energizer/optimizer/sgd.py
+energizer/parallel/__init__.py
+energizer/parallel/core.py
+energizer/parallel/launcher.py
+energizer/parallel/layers.py
+energizer/parallel/monitor.py
 tests/test_as_strided.py
 tests/test_avgpool2d.py
 tests/test_backpack_extended_integration.py
@@ -55,4 +60,6 @@ tests/test_conv1d.py
 tests/test_linear.py
 tests/test_maxpool2d.py
 tests/test_operators.py
+tests/test_parallel.py
+tests/test_parallel_launcher.py
 tests/test_tracer.py

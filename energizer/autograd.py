@@ -366,7 +366,7 @@ class Tensor:
         return Log.apply(self)
 
     def sqrt(self):
-        return self ** 0.5
+        return self**0.5
 
     def numpy(self):
         return backend.to_numpy(self.data, self.device)
