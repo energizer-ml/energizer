@@ -5,7 +5,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/energizer)](https://pypi.org/project/energizer/)
 [![Python](https://img.shields.io/pypi/pyversions/energizer)](https://pypi.org/project/energizer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Lint](https://github.com/fgrimaepitech/energizer/actions/workflows/lint.yml/badge.svg)](https://github.com/fgrimaepitech/energizer/actions/workflows/lint.yml)
+[![Lint](https://github.com/energizer-ml/energizer/actions/workflows/lint.yml/badge.svg)](https://github.com/energizer-ml/energizer/actions/workflows/lint.yml)
 
 Energizer provides a familiar, PyTorch-style API for building and training neural networks with **first-class support for Apple Silicon** via the [MLX](https://github.com/ml-explore/mlx) backend. It falls back to NumPy on CPU, making it suitable for prototyping on any platform.
 
@@ -330,4 +330,4 @@ MIT — see [LICENSE](LICENSE).
 ## Author
 
 **Florian GRIMA** — [florian.grima@epitech.eu](mailto:florian.grima@epitech.eu)  
-[GitHub](https://github.com/fgrimaepitech) · [PyPI](https://pypi.org/project/energizer/) · [Issues](https://github.com/fgrimaepitech/energizer/issues)
+[GitHub](https://github.com/fgrimaepitech) · [PyPI](https://pypi.org/project/energizer/) · [Issues](https://github.com/energizer-ml/energizer/issues)

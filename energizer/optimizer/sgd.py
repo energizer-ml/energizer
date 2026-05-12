@@ -33,6 +33,8 @@ class SGD(Optimizer):
         if closure is not None:
             loss = closure()
 
+        self._synchronize_distributed_gradients()
+
         for group in self.param_groups:
             lr = group["lr"]
             momentum = group["momentum"]

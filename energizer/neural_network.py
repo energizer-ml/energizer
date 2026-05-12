@@ -1,4 +1,5 @@
 from typing import Dict, List, Any, Callable
+from collections.abc import Iterable
 
 from energizer.tensor import Tensor
 import numpy as np
@@ -162,13 +163,43 @@ class Optimizer:
                     merged_group = {**defaults, **param_group}
                     self.add_param_group(merged_group)
             else:
-                for param in params:
-                    self.add_param_group({**defaults, "params": param})
+                self.add_param_group({**defaults, "params": list(params)})
         else:
             if isinstance(params, (list, tuple)) and len(params) == 0:
                 self.add_param_group({**defaults, "params": []})
             else:
+                if isinstance(params, Iterable) and not isinstance(params, (dict, Tensor)):
+                    params = list(params)
                 self.add_param_group({**defaults, "params": params})
+
+    def _synchronize_distributed_gradients(self):
+        seen = set()
+        sync_count = 0
+        total_bytes = 0
+        last_world = None
+        for param_group in self.param_groups:
+            for param in param_group["params"]:
+                if id(param) in seen:
+                    continue
+                seen.add(id(param))
+                world = getattr(param, "_distributed_world", None)
+                if world is None or param.grad is None:
+                    continue
+
+                grad_value = param.grad.data if hasattr(param.grad, "data") else param.grad
+                synced = world.allreduce(grad_value)
+                sync_count += 1
+                total_bytes += int(getattr(synced, "nbytes", 0))
+                last_world = world
+                if hasattr(param.grad, "data"):
+                    param.grad.data = synced
+                else:
+                    param.grad = synced
+        if last_world is not None and sync_count:
+            last_world._emit(
+                "optimizer_grad_sync",
+                {"parameters": sync_count, "synced_tensor_bytes": total_bytes},
+            )
 
     def add_param_group(self, param_group: dict):
         self.param_groups.append(param_group)
@@ -216,6 +247,7 @@ class Optimizer:
         if closure is not None:
             closure()
         else:
+            self._synchronize_distributed_gradients()
             for param_group in self.param_groups:
                 for param in param_group["params"]:
                     if param.grad is not None:

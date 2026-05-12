@@ -104,11 +104,11 @@ Example::
     optimizer.zero_grad()
 """
 
-__version__ = "0.1.7"
+__version__ = "0.1.8a1"
 __author__ = "Florian GRIMA"
 __name__ = "energizer"
 __description__ = "A lightweight deep learning library for Apple's Neural Engine."
-__url__ = "https://github.com/fgrimaepitech/energizer"
+__url__ = "https://github.com/energizer-ml/energizer"
 __license__ = "MIT"
 __copyright__ = "Copyright 2026 Florian GRIMA"
 __maintainer__ = "Florian GRIMA"
@@ -238,6 +238,15 @@ from .layers.transformer import TransformerEncoderLayer, TransformerEncoder
 # Loss Functions
 # ---------------------------------------------------------------------------
 from .layers.loss import MSELoss, CrossEntropyLoss
+
+# ---------------------------------------------------------------------------
+# Distributed
+# ---------------------------------------------------------------------------
+from .distributed import (
+    World,
+    DataParallel,
+    allreduce,
+)
 
 # ---------------------------------------------------------------------------
 # Layers — Embedding

@@ -90,7 +90,7 @@ wheels = [
 
 [[package]]
 name = "energizer"
-version = "0.1.7"
+version = "0.1.8a1"
 source = { editable = "." }
 dependencies = [
     { name = "coremltools" },
