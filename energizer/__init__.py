@@ -104,7 +104,7 @@ Example::
     optimizer.zero_grad()
 """
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 __author__ = "Florian GRIMA"
 __name__ = "energizer"
 __description__ = "A lightweight deep learning library for Apple's Neural Engine."
@@ -255,13 +255,16 @@ from .layers.init import zeros_, orthogonal_
 from .parallel import (
     AllToShardedLinear,
     DeviceGroup,
+    ParallelLaunchConfig,
     ShardedTensor,
     ShardedToAllLinear,
     all_sum,
     average_gradients,
+    build_mlx_launch_command,
     data_parallel_step,
     gather,
     init_device_group,
+    launch,
     shard,
     shard_inplace,
     shard_linear,

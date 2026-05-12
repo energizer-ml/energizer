@@ -21,17 +21,21 @@ from .core import (
     split_batch,
 )
 from .layers import AllToShardedLinear, ShardedToAllLinear, shard_inplace, shard_linear
+from .launcher import ParallelLaunchConfig, build_mlx_launch_command, launch
 
 __all__ = [
     "AllToShardedLinear",
     "DeviceGroup",
+    "ParallelLaunchConfig",
     "ShardedTensor",
     "ShardedToAllLinear",
     "all_sum",
     "average_gradients",
+    "build_mlx_launch_command",
     "data_parallel_step",
     "gather",
     "init_device_group",
+    "launch",
     "shard",
     "shard_inplace",
     "shard_linear",
