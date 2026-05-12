@@ -5,7 +5,7 @@ group = ez.init_device_group(distributed=True)
 print("rank", group.rank, "world size", group.size)
 
 model = ez.Sequential(
-    ez.Linear(128, 256, device="gpu"),  
+    ez.Linear(128, 256, device="gpu"),
     ez.Linear(256, 10, device="gpu"),
 )
 

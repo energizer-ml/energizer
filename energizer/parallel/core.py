@@ -46,10 +46,7 @@ class _Concatenate(Function):
         axis = args[-1]
         arrays = args[:-1]
         ctx.axis = axis
-        ctx.sizes = [
-            arr.shape[_normalize_axis(axis, len(arr.shape))]
-            for arr in arrays
-        ]
+        ctx.sizes = [arr.shape[_normalize_axis(axis, len(arr.shape))] for arr in arrays]
         lib = backend.lib(ctx.device)
         return lib.concatenate(arrays, axis=axis)
 

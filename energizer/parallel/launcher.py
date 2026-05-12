@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
 
-
 RANK_RE = re.compile(r"\brank=(?P<rank>\d+)\b")
 SIZE_RE = re.compile(r"\bsize=(?P<size>\d+)\b")
 WARN_RE = re.compile(r"\[WARN\]\s+Node with rank (?P<rank>\d+).*(?P<code>\d+)")

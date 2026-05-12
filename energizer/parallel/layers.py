@@ -68,9 +68,7 @@ class AllToShardedLinear(_ShardedLinearBase):
         self.use_bias = bias
 
         ranks = (
-            [self.group.rank]
-            if self.group.is_distributed
-            else range(self.group.size)
+            [self.group.rank] if self.group.is_distributed else range(self.group.size)
         )
         self.weight_shards = []
         self.bias_shards = []
@@ -136,9 +134,7 @@ class ShardedToAllLinear(_ShardedLinearBase):
         self.use_bias = bias
 
         ranks = (
-            [self.group.rank]
-            if self.group.is_distributed
-            else range(self.group.size)
+            [self.group.rank] if self.group.is_distributed else range(self.group.size)
         )
         self.weight_shards = []
         for rank in ranks:
@@ -269,8 +265,7 @@ def shard_linear(
         return sharded
 
     raise ValueError(
-        "mode must be either 'all-to-sharded' or 'sharded-to-all', "
-        f"got {mode!r}"
+        "mode must be either 'all-to-sharded' or 'sharded-to-all', " f"got {mode!r}"
     )
 
 
@@ -310,6 +305,5 @@ def shard_inplace(layer: Linear, mode: ShardType, group: DeviceGroup | None = No
         layer.in_features = layer.weight.data.shape[1]
         return layer
     raise ValueError(
-        "mode must be either 'all-to-sharded' or 'sharded-to-all', "
-        f"got {mode!r}"
+        "mode must be either 'all-to-sharded' or 'sharded-to-all', " f"got {mode!r}"
     )
