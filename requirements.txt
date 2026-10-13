@@ -1,9 +1,0 @@
-pyinstaller
-numpy
-torch
-pillow
-matplotlib
-torchvision
-mlx
-mlx-metal
-coremltools
