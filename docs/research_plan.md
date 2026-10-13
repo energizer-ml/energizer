@@ -13,14 +13,18 @@ claims each step supports.
 | 6 | Hybrid prototype: ANE forward, GPU backward + optimizer; measure transfer / recompile overhead | **prototype done** (MLP only); sweep over widths / batch pending | `experiments/run_hybrid.py` |
 | 7 | Private-API decision | **decided: not needed yet**, see record | `docs/private_apis.md` |
 
-### Preliminary observations (single machine, dirty tree, n=30; NOT paper numbers)
+### Findings (M4 Pro, macOS 26.6.2, uncommitted tree, medians; re-run on a clean commit before quoting)
 
-Re-run on a clean commit before quoting. M4 Pro, macOS 26.6.2.
-
-- Training step, MLP 3x1024, batch 256, Adam: MLX 6.2 ms before step 5 -> 2.0 ms after (3.2x); NumPy CPU 9.1 ms.
-- Hybrid, same MLP: Core ML forward on ANE 0.47 ms (placement 100% ANE with `CPU_AND_NE`); GPU backward+SGD 0.90 ms; pure-MLX step 1.20 ms; weight sync (convert+compile+load) about 540 ms. Hybrid does not beat pure MLX at any sync interval tried.
-- `compute_units=ALL` placed the same fp16 MLP on the GPU, not the ANE: placement is the planner's choice, which is why `CPU_AND_NE` is also swept.
-- Transformer block (seq 64, d=128) fp16: 100% ANE under `ALL`; fp32: 0% ANE.
+- **Placement (576 rows, 0 errors):** fp32 never reaches the ANE (0/72 configs). fp16: 50/72 fully on the ANE, 3 partial, 19 none; the switch is a size threshold (conv ~128 channels at 64x64, transformer block seq 128 at d=512). `CPU_AND_NE` places 57/72 fp16 configs fully.
+- **Baselines (fp16 matmul, batch 1):** Core ML wins at n<=128 (0.04-0.05 ms), PyTorch MPS at 512 (0.17 ms), MLX at 1024 and 4096 (0.51 / 23.5 ms).
+- **Measured peak, fp16, n<=4096:** Core ML GPU 3.33, MPS 2.92, MLX 2.50, Core ML ANE 1.91 TFLOP/s (ANE still rising).
+- **Training step vs NumPy (Adam):** MLP-1024 10.2 -> 2.0 ms, MLP-2048 56 -> 7.7 ms, CNN 64.8 -> 4.7 ms, transformer 38.1 -> 7.5 ms.
+- **Ablation (width 2048):** full 8.1 ms; host loss 9.9 ms; host optimizer 54 ms; NumPy 47 ms.
+- **Hybrid overhead:** Core ML forward 0.21-0.47 ms, transfer 0.01-0.03 ms, GPU backward+SGD 0.57-0.89 ms vs pure MLX 0.45-1.08 ms; weight sync 260-350 ms. No width <=1024 where the hybrid step beats pure MLX even with free sync.
+- **Convergence (MNIST MLP, 3 epochs):** NumPy 93.00%, MLX 93.02%, hybrid fp16 with weight refresh every step 92.98% but 127.6 s vs 0.2 s; refresh every 5 or 20 steps diverges (weights blow up to NaN).
+- **Power (576 rows, `powermetrics`, idle 1.28 W CPU / 0.24 W GPU / 0 W ANE subtracted):** planned-ANE fp16 rows draw median 2.74 W on the ANE rail (107 rows); rows not planned on the ANE draw 0 W (34 rows), so planned placement matches observed ANE activity. For 32 batch-8 fp16 configs fully placed on the ANE, CPU+GPU took median 1.32x the latency and 2.75x the energy per inference. `ALL` sometimes splits a block (68-77% ANE) and is then slower than either pure choice.
+- **Energy-to-accuracy (MNIST MLP, 3 epochs, ~93%):** NumPy 2.06 J / 0.4 s, MLX 1.85 J / 0.24 s, hybrid fp16 (refresh every step) 972 J / 128.5 s (CPU rail 947 J, GPU 24 J, ANE 0.5 J). MLX uses ~10% less energy than NumPy here although 1.7x faster; the hybrid spends its energy recompiling on the CPU.
+- **Pending:** larger models, repeats across thermal states, clean-commit re-run (all result files say `git_dirty: true`).
 
 ### Bugs found and fixed while doing step 5
 

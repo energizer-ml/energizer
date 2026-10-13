@@ -106,7 +106,7 @@ Example::
     optimizer.zero_grad()
 """
 
-__version__ = "0.1.8"
+__version__ = "0.2.0"
 __author__ = "Florian GRIMA"
 __name__ = "energizer"
 __description__ = "A lightweight deep learning library for Apple Silicon (MLX/Metal training, Core ML Neural Engine inference)."

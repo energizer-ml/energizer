@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Regenerate every paper figure from ``results/**/*.jsonl`` (no hand-edited data).
 
-python experiments/make_figures.py [--all]    # writes paper/figures/*.pdf
+python experiments/make_figures.py [--latest]    # writes paper/figures/*.pdf
 """
 
 from __future__ import annotations
@@ -218,7 +218,7 @@ def fig_ablation(merge_all):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "--all", action="store_true", help="merge every run, not just the latest"
+        "--latest", action="store_true", help="newest file per experiment only"
     )
     a = ap.parse_args()
     for f in (
@@ -228,8 +228,9 @@ def main() -> None:
         fig_hybrid_breakdown,
         fig_convergence,
         fig_train_step,
+        fig_ablation,
     ):
-        f(a.all)
+        f(not a.latest)
 
 
 if __name__ == "__main__":

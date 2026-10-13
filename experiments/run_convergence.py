@@ -114,7 +114,7 @@ def run_energizer(device, data, a):
     return hist
 
 
-def run_hybrid(data, a):
+def run_hybrid(data, a, sync_every):
     import mlx.core as mx
     import torch
 
@@ -150,7 +150,7 @@ def run_hybrid(data, a):
             mx.eval(loss, *ws, *bs)
             losses.append(float(loss))
             step += 1
-            if step % a.sync_every == 0:
+            if step % sync_every == 0:
                 ts = time.perf_counter()
                 model, _ = sync_coreml(ws, bs, example, "fp16", a.units)
                 sync_total += time.perf_counter() - ts
@@ -190,9 +190,15 @@ def main() -> int:
     ap.add_argument("--n-train", type=int, default=20000)
     ap.add_argument("--n-test", type=int, default=5000)
     ap.add_argument("--units", default="CPU_AND_NE")
-    ap.add_argument("--sync-every", type=int, default=50)
+    ap.add_argument("--sync-every", type=int, nargs="+", default=[1, 5, 20])
     ap.add_argument("--paths", nargs="+", default=["cpu", "mlx", "hybrid_fp16"])
     ap.add_argument("--power", action="store_true")
+    ap.add_argument(
+        "--min-power-s",
+        type=float,
+        default=10.0,
+        help="min power window for short paths",
+    )
     a = ap.parse_args()
 
     if a.power and not PowerSampler.available():
@@ -202,34 +208,65 @@ def main() -> int:
     out = ResultWriter("convergence")
     print("writing", out.path)
     idle = pw.idle_baseline() if a.power else None
+    jobs = []
     for path in a.paths:
+        if path == "hybrid_fp16":
+            jobs += [(f"hybrid_fp16_k{k}", k) for k in a.sync_every]
+        else:
+            jobs.append((path, None))
+    for path, k in jobs:
         ctx = PowerSampler() if a.power else None
         t0 = time.perf_counter()
         if ctx:
             ctx.__enter__()
-        hist = (
-            run_hybrid(data, a)
-            if path == "hybrid_fp16"
-            else run_energizer("mlx" if path == "mlx" else "cpu", data, a)
-        )
+        status = "ok"
+        reps = 1
+        try:
+            if k is not None:
+                hist = run_hybrid(data, a, k)
+            else:
+                # short trainings are repeated so the power window holds enough
+                # powermetrics samples; energy is reported per training run
+                device = "mlx" if path == "mlx" else "cpu"
+                hist = run_energizer(device, data, a)
+                while a.power and time.perf_counter() - t0 < a.min_power_s:
+                    hist = run_energizer(device, data, a)
+                    reps += 1
+        except (
+            AssertionError
+        ) as e:  # coremltools rejects NaN weights: training diverged
+            hist, status = [], f"diverged: {e}"
         wall = time.perf_counter() - t0
         power = None
         if ctx:
             ctx.__exit__(None, None, None)
-            power = {"summary": ctx.summary(), "net": pw.net(ctx.summary(), idle, wall)}
-        out.write(
-            {
-                "path": path,
-                "args": vars(a),
-                "history": hist,
-                "wall_s": wall,
-                "power": power,
-            }
-        )
-        h = hist[-1]
-        print(
-            f"{path:<12} loss {h['loss']:.4f}  test_acc {h['test_acc']:.4f}  train {h['train_s']:.1f}s"
-        )
+            net = pw.net(ctx.summary(), idle, wall)
+            per_run = (
+                {k_: v / reps for k_, v in net.items() if k_.endswith("_mj")}
+                if net
+                else None
+            )
+            power = {"summary": ctx.summary(), "net": net, "net_per_run_mj": per_run}
+        rec = {
+            "path": path,
+            "sync_every": k,
+            "args": vars(a),
+            "history": hist,
+            "wall_s": wall,
+            "reps": reps,
+            "power": power,
+            "status": status,
+        }
+        if status != "ok":
+            rec["error"] = status
+        out.write(rec)
+        if hist:
+            h = hist[-1]
+            print(
+                f"{path:<16} loss {h['loss']:.4f}  test_acc {h['test_acc']:.4f}  train {h['train_s']:.1f}s"
+            )
+        else:
+            print(f"{path:<16} {status}")
     return 0
 
 

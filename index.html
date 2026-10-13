@@ -1,190 +1,347 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Energizer</title>
-    <style>
-        body {
-            background-color: #ffffff;
-            color: #000000;
-            font-family: monospace; 
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            line-height: 1.6;
-        }
-        h1, h2 {
-            font-weight: normal;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 5px;
-            margin-top: 40px;
-        }
-        a {
-            color: #0000ee;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        a:hover {
-            text-decoration: underline;
-            background-color: #000;
-            color: #fff;
-        }
-        .status-bar {
-            margin-bottom: 20px;
-            font-size: 0.9em;
-        }
-        .badge {
-            border: 1px solid #000;
-            padding: 2px 6px;
-            margin-right: 8px;
-            display: inline-block;
-        }
-        ul {
-            list-style-type: square;
-        }
-        .release-item {
-            margin-bottom: 15px;
-        }
-        .release-body {
-            margin-top: 5px;
-            font-size: 0.9em;
-            color: #333;
-            white-space: pre-wrap;
-        }
-        .toggle-btn {
-            display: inline-block;
-            margin-top: 5px;
-            font-size: 0.9em;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energizer — the Neural Engine, measured</title>
+<meta name="description" content="Energizer is a small PyTorch-like library and measurement harness for finding out what Apple's Neural Engine can actually do for deep-learning training.">
+<style>
+  :root {
+    --bg: #ffffff; --ink: #111111; --muted: #6a6a6a; --line: #e4e4e0;
+    --soft: #f6f6f3; --accent: #1f4fff;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0c0c0c; --ink: #ededed; --muted: #8d8d8d; --line: #262626; --soft: #141414; --accent: #7d9bff; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
+         font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
+  a:hover { border-bottom-color: var(--ink); }
+  code, .mono { font-family: var(--mono); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+  nav { display: flex; justify-content: space-between; align-items: center; padding: 22px 0;
+        font-family: var(--mono); font-size: 13px; }
+  nav .brand { font-weight: 600; border: 0; letter-spacing: .02em; }
+  nav .links { display: flex; gap: 22px; flex-wrap: wrap; }
+  nav a { border: 0; color: var(--muted); }
+  nav a:hover { color: var(--ink); }
+
+  .tag { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: lowercase; }
+  .hero { padding: 96px 0 72px; }
+  h1 { font-size: clamp(40px, 7vw, 76px); line-height: 1.02; letter-spacing: -.035em; font-weight: 600; margin: 18px 0 24px; max-width: 14ch; }
+  .lede { font-size: clamp(18px, 2.2vw, 22px); color: var(--muted); max-width: 40em; margin: 0 0 32px; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--mono); font-size: 14px; }
+  .btn { border: 1px solid var(--ink); padding: 10px 16px; border-radius: 6px; }
+  .btn.solid { background: var(--ink); color: var(--bg); }
+  .btn:hover { opacity: .85; }
+  .status { margin-top: 28px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; color: var(--muted); }
+
+  section { padding: 72px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(26px, 3.6vw, 38px); letter-spacing: -.025em; font-weight: 600; line-height: 1.15; margin: 10px 0 20px; max-width: 22ch; }
+  p { margin: 0 0 16px; max-width: 46em; }
+  .muted { color: var(--muted); }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 36px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px; margin-top: 36px; }
+  .col h3 { font-size: 17px; margin: 0 0 6px; font-weight: 600; }
+  .col p { color: var(--muted); font-size: 15.5px; }
+  .col .tag { display: block; margin-bottom: 10px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 40px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .stat { padding: 26px 22px; border-right: 1px solid var(--line); }
+  .stat:last-child { border-right: 0; }
+  .num { font-size: clamp(34px, 4.2vw, 52px); font-weight: 600; letter-spacing: -.04em; line-height: 1; }
+  .stat p { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+  .note { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 28px; font-size: 15px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--muted); text-transform: lowercase; letter-spacing: .05em; }
+
+  pre { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; overflow-x: auto;
+        font-family: var(--mono); font-size: 14px; line-height: 1.65; margin: 24px 0 0; }
+  .cmp > div { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 24px; }
+  .cmp h3 { margin: 6px 0 10px; font-size: 18px; }
+  .cmp ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 15.5px; }
+  .cmp li { margin: 6px 0; }
+
+  .steps { margin: 28px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+  .steps li { display: grid; grid-template-columns: 56px 1fr 130px; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 15.5px; }
+  .steps .n, .steps .s { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .steps .s { text-align: right; }
+  .done { color: var(--accent) !important; }
+
+  details { border-bottom: 1px solid var(--line); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "+ "; font-family: var(--mono); color: var(--muted); }
+  details[open] summary::before { content: "– "; }
+  details p { margin: 10px 0 0; color: var(--muted); font-size: 16px; }
+
+  #releases-list { list-style: none; padding: 0; margin: 24px 0 0; }
+  .release-item { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .release-body { margin-top: 6px; font-size: 14.5px; color: var(--muted); white-space: pre-wrap; }
+  .toggle-btn { font-family: var(--mono); font-size: 12px; cursor: pointer; }
+
+  footer { border-top: 1px solid var(--line); padding: 36px 0 56px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+  @media (max-width: 820px) {
+    .grid3, .grid2 { grid-template-columns: 1fr; gap: 26px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(2) { border-right: 0; }
+    .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .steps li { grid-template-columns: 40px 1fr; }
+    .steps .s { grid-column: 2; text-align: left; }
+    .hero { padding: 56px 0 48px; }
+  }
+</style>
 </head>
 <body>
+<div class="wrap">
 
-    <h1>energizer</h1>
-
-    <div class="status-bar">
-        <span class="badge">python: >=3.9</span>
-        <span class="badge" id="version-badge">pypi: v…</span>
-        <span class="badge">build: passing</span>
-        <span class="badge">linter: passing</span>
+  <nav>
+    <a class="brand" href="#top">energizer</a>
+    <div class="links">
+      <a href="#research">research</a>
+      <a href="#results">results</a>
+      <a href="#power">power</a>
+      <a href="#ablation">ablation</a>
+      <a href="#method">method</a>
+      <a href="#status">status</a>
+      <a href="#releases">releases</a>
+      <a href="https://github.com/energizer-ml/energizer">github</a>
     </div>
+  </nav>
 
-    <p>A lightweight PyTorch-like deep learning library for Apple Silicon: MLX/Metal for training, Core ML for Neural Engine inference.</p>
+  <header class="hero" id="top">
+    <span class="tag">v0.2 &middot; research release</span>
+    <h1>The Neural Engine, measured.</h1>
+    <p class="lede">Energizer is a small PyTorch-like library and measurement harness. It exists to answer one question with data: what can Apple's Neural Engine actually do for deep-learning training?</p>
+    <div class="cta">
+      <a class="btn solid" href="#results">see the results</a>
+      <a class="btn" href="https://github.com/energizer-ml/energizer">source</a>
+      <a class="btn" href="https://pypi.org/project/energizer/">pip install energizer</a>
+    </div>
+    <div class="status">
+      <span class="pill" id="version-badge">pypi: v0.2.0</span>
+      <span class="pill">python 3.10&ndash;3.12</span>
+      <span class="pill">apple silicon</span>
+      <span class="pill">MIT</span>
+    </div>
+  </header>
 
-    <h2>author</h2>
-    <p>Florian GRIMA &lt;<a href="mailto:florian.grima@epitech.eu">florian.grima@epitech.eu</a>&gt;<br>
-    GitHub: <a href="https://github.com/fgrimaepitech">@fgrimaepitech</a></p>
+  <section id="what">
+    <span class="tag">what it is</span>
+    <h2>One repo, three pieces.</h2>
+    <div class="grid3">
+      <div class="col">
+        <span class="tag">01 &middot; library</span>
+        <h3>A framework you can read</h3>
+        <p>Autograd, layers, optimizers and two backends: NumPy on the CPU and MLX on the Apple GPU. Every layer's backward pass runs on-device, checked against PyTorch.</p>
+      </div>
+      <div class="col">
+        <span class="tag">02 &middot; harness</span>
+        <h3>Measurements, scripted</h3>
+        <p>Per-op placement from Core ML's compute plan, latency with warm-up and repeats, power from <code>powermetrics</code> with idle subtracted. Every number regenerates from raw files.</p>
+      </div>
+      <div class="col">
+        <span class="tag">03 &middot; paper</span>
+        <h3>Claims with receipts</h3>
+        <p>A claims ledger ties each statement to a script and a result file. Tables and figures are generated, never typed.</p>
+      </div>
+    </div>
+  </section>
 
-    <h2>dependencies</h2>
-    <ul>
-        <li><code>mlx</code> - Apple's array framework for machine learning</li>
-        <li><code>numpy</code> - The fundamental package for scientific computing</li>
+  <section id="research">
+    <span class="tag">the research</span>
+    <h2>The Neural Engine is easy to name and hard to reach.</h2>
+    <p>Most &ldquo;runs on the Neural Engine&rdquo; claims are really GPU or CPU work. MLX and PyTorch&rsquo;s MPS backend execute on the GPU through Metal. The ANE is reachable only through Core ML, which decides placement itself and has no public backward pass.</p>
+    <p>That makes the ANE's role in training an open, measurable question rather than a given. The project's goal is to characterise it honestly: where Core ML places work, what it costs in time and energy, and whether a hybrid &mdash; forward on the ANE, backward and optimizer on the GPU &mdash; can pay for its own overhead.</p>
+    <table>
+      <thead><tr><th>device in energizer</th><th>silicon used</th><th>notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>"cpu"</code></td><td>CPU</td><td>NumPy reference backend</td></tr>
+        <tr><td><code>"mlx"</code></td><td>GPU (Metal)</td><td>Training path. Not the ANE. Formerly <code>"gpu"</code>, kept as a deprecated alias.</td></tr>
+        <tr><td><code>energizer.backpack</code></td><td>CPU / GPU / ANE</td><td>Core ML inference. Placement is Core ML's decision.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="results">
+    <span class="tag">results so far</span>
+    <h2>Placement is a threshold, not a dial.</h2>
+    <p>We swept 72 single-op and block workloads (convolutions, matmuls, a transformer block) over channels, sequence length, batch size and precision, and asked Core ML where each op would run.</p>
+    <div class="stats">
+      <div class="stat"><div class="num">0/72</div><p>fp32 configurations with any op planned on the ANE</p></div>
+      <div class="stat"><div class="num">50/72</div><p>fp16 configurations planned entirely on the ANE</p></div>
+      <div class="stat"><div class="num">5&ndash;14&times;</div><p>MLX-native training step vs the NumPy backend (MLP, CNN, transformer)</p></div>
+      <div class="stat"><div class="num">~640&times;</div><p>slower training for a hybrid that matches fp32 accuracy (weights refreshed every step)</p></div>
+    </div>
+    <p class="note">Placement = Core ML's planned device (MLComputePlan), compute units ALL. Single machine: M4 Pro, macOS 26.6.2, uncommitted tree, median of repeated runs. Power rows: powermetrics, idle subtracted.</p>
+
+    <table>
+      <thead><tr><th>fp16 matmul, batch 1 (ms, median)</th><th>128</th><th>512</th><th>1024</th><th>4096</th></tr></thead>
+      <tbody>
+        <tr><td>Core ML, CPU+ANE</td><td><strong>0.047</strong></td><td>0.301</td><td>0.919</td><td>27.3</td></tr>
+        <tr><td>Core ML, CPU+GPU</td><td><strong>0.044</strong></td><td>0.608</td><td>1.216</td><td>35.9</td></tr>
+        <tr><td>MLX</td><td>0.108</td><td>0.431</td><td><strong>0.508</strong></td><td><strong>23.5</strong></td></tr>
+        <tr><td>PyTorch MPS</td><td>0.121</td><td><strong>0.172</strong></td><td>0.547</td><td>26.0</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Core ML wins at tiny sizes, MLX and MPS at large ones. Best measured fp16 matmul throughput at n&le;4096: Core ML GPU 3.3, MPS 2.9, MLX 2.5, Core ML ANE 1.9 TFLOP/s (still rising at 4096).</p>
+
+    <div class="grid2 cmp">
+      <div>
+        <span class="tag">what we see</span>
+        <h3>Small ops stay off the ANE</h3>
+        <ul>
+          <li>Convolutions move to the ANE from about 128 channels (64&times;64 images).</li>
+          <li>A transformer block moves at sequence length 128 (d=512).</li>
+          <li>Below those sizes Core ML prefers the CPU, even though the ANE could run them.</li>
+        </ul>
+      </div>
+      <div>
+        <span class="tag">what it means for training</span>
+        <h3>The hybrid does not pay</h3>
+        <ul>
+          <li>Core ML models are immutable: every weight update means convert, compile, load (260&ndash;350&nbsp;ms here).</li>
+          <li>Even ignoring that cost, Core ML forward + backward + transfer did not beat a pure MLX step at widths 256&ndash;1024.</li>
+          <li>Refreshing weights every step reaches the same accuracy as fp32 (92.98% vs 93.00%, MNIST) at ~500&times; the energy; every 5 steps already diverges.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="power">
+    <span class="tag">power</span>
+    <h2>The ANE is where the energy goes down.</h2>
+    <p>With <code>powermetrics</code> sampling CPU, GPU and ANE rails (idle subtracted), the planned placement matches what the silicon does: configurations planned on the ANE draw a median 2.7&nbsp;W on the ANE rail (107 runs), the others 0&nbsp;W (34 runs).</p>
+    <p>For 32 batch-8 fp16 configurations that Core ML can place entirely on the ANE, running them on the GPU instead took a median 1.3&times; longer but 2.75&times; the energy per inference.</p>
+    <table>
+      <thead><tr><th>fp16, batch 8 (ms / mJ per run)</th><th>CPU+ANE</th><th>CPU+GPU</th><th>CPU only</th></tr></thead>
+      <tbody>
+        <tr><td>matmul 2048&sup3;</td><td>28.7 / 178</td><td>45.7 / 736</td><td>46.7 / 327</td></tr>
+        <tr><td>conv 512ch, 64&times;64</td><td>18.4 / 312</td><td>30.4 / 740</td><td>33.1 / 476</td></tr>
+        <tr><td>transformer seq 512, d=512</td><td>8.4 / 35</td><td>7.7 / 161</td><td>9.3 / 81</td></tr>
+        <tr><td>transformer seq 1024, d=512</td><td>24.1 / 64</td><td>17.4 / 314</td><td>27.5 / 215</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The GPU can be faster (transformer rows) but costs several times the energy. <code>compute_units=ALL</code> sometimes splits a block (68&ndash;77% on the ANE) and then lands slower than either pure choice. Includes the host Python process on the CPU rail; same for every row. M4 Pro, plugged in, 5&nbsp;s sampling windows.</p>
+    <p>Energy to reach the same accuracy (MNIST MLP, 3 epochs, ~93%): NumPy CPU 2.1&nbsp;J, MLX 1.9&nbsp;J, hybrid with ANE forward 972&nbsp;J. The ANE rail contributed 0.5&nbsp;J of that; 947&nbsp;J was the CPU converting and compiling the Core ML model after every weight update.</p>
+    <p class="note">The ANE is the efficient place to run a fixed forward pass, not a place to train: its energy advantage disappears once the weights change.</p>
+  </section>
+
+  <section id="ablation">
+    <span class="tag">ablation</span>
+    <h2>The optimizer was the bottleneck.</h2>
+    <p>Switching each MLX-native component off in turn (3-layer MLP, batch 256, Adam): at width 2048 the step takes 8.1&nbsp;ms fully native, 9.9&nbsp;ms with the loss on the host, and 54&nbsp;ms with gradients copied to the host for the optimizer. Keeping the optimizer on-device matters far more than the loss.</p>
+  </section>
+
+  <section id="method">
+    <span class="tag">method</span>
+    <h2>Everything regenerates.</h2>
+    <p>Raw measurements are JSON Lines with the environment embedded: chip, macOS build, library versions, git commit, thermal state. Tables and figures are derived from those files only.</p>
+<pre><code>pip install -e ".[dev,paper]"
+make reproduce          # sweeps, baselines, peak, training, ablation, hybrid, convergence
+sudo -E make power      # adds powermetrics, idle power subtracted
+make tables figures     # paper/tables/*.tex, paper/figures/*.pdf</code></pre>
+    <div class="grid3">
+      <div class="col"><span class="tag">variance</span><h3>Warm-up and repeats</h3><p>Median and run-to-run spread, never a single run.</p></div>
+      <div class="col"><span class="tag">efficiency</span><h3>Achieved vs measured peak</h3><p>The denominator is the best throughput we measure, not a datasheet.</p></div>
+      <div class="col"><span class="tag">correctness</span><h3>Same accuracy first</h3><p>Speed only counts if the accelerated path converges like fp32.</p></div>
+    </div>
+  </section>
+
+  <section id="status">
+    <span class="tag">status</span>
+    <h2>Where the work stands.</h2>
+    <ul class="steps">
+      <li><span class="n">01</span><span>Backend claim fixed: <code>"mlx"</code> means GPU, not ANE</span><span class="s done">done</span></li>
+      <li><span class="n">02</span><span>Measurement harness: placement, latency, power</span><span class="s done">done</span></li>
+      <li><span class="n">03</span><span>Characterisation sweeps (576 rows), peak, ablation, convergence</span><span class="s done">done</span></li>
+      <li><span class="n">04</span><span>Baselines: MLX, PyTorch MPS, Core ML</span><span class="s done">done</span></li>
+      <li><span class="n">05</span><span>MLX-native backward for every layer</span><span class="s done">done</span></li>
+      <li><span class="n">06</span><span>Hybrid ANE-forward / GPU-backward: overhead and convergence</span><span class="s done">done</span></li>
+      <li><span class="n">07</span><span>Private APIs: decided not needed yet</span><span class="s done">done</span></li>
+      <li><span class="n">08</span><span>Power sweep (576 rows, idle-subtracted)</span><span class="s done">done</span></li>
+      <li><span class="n">09</span><span>Energy-to-accuracy (MNIST MLP)</span><span class="s done">done</span></li>
+      <li><span class="n">10</span><span>Larger models, clean-commit re-run, paper text</span><span class="s">next</span></li>
     </ul>
+  </section>
 
-    <h2>releases & changelog</h2>
-    <ul id="releases-list">
-        <li><em>Loading releases from GitHub...</em></li>
-    </ul>
+  <section id="faq">
+    <span class="tag">questions</span>
+    <h2>Fair objections.</h2>
+    <details><summary>Does Energizer train on the Neural Engine?</summary><p>No. Training runs on the CPU (NumPy) or the GPU (MLX). The ANE is used only through Core ML for forward passes, and whether a hybrid is worthwhile is exactly what the project measures.</p></details>
+    <details><summary>Is planned placement the same as real placement?</summary><p>Not necessarily. MLComputePlan reports the planned device; the OS can schedule differently at run time. That is why the harness also samples ANE power with <code>powermetrics</code> to cross-check.</p></details>
+    <details><summary>Why not just use MLX or PyTorch?</summary><p>You should for GPU training. Energizer is a deliberately small codebase where every operation, including its backward pass, can be inspected, instrumented and moved between backends.</p></details>
+    <details><summary>Are private APIs used?</summary><p>No. The decision record in the repository lists what the public path cannot do and when private interfaces would be revisited.</p></details>
+  </section>
 
-    <h2>links</h2>
-    <p>
-        [ <a href="https://github.com/fgrimaepitech/energizer">repository</a> ] 
-        [ <a href="https://pypi.org/project/energizer/">pypi</a> ]
-        [ <a href="https://github.com/fgrimaepitech/energizer/issues">issues</a> ]
-    </p>
+  <section id="releases">
+    <span class="tag">releases</span>
+    <h2>Changelog.</h2>
+    <ul id="releases-list"><li class="muted"><em>Loading releases from GitHub&hellip;</em></li></ul>
+  </section>
 
-    <script>
-        function escapeHTML(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
+  <footer>
+    <span>energizer &middot; Florian GRIMA &middot; MIT</span>
+    <span>
+      <a href="https://github.com/fgrimaepitech/energizer">repository</a> &middot;
+      <a href="https://pypi.org/project/energizer/">pypi</a> &middot;
+      <a href="https://github.com/fgrimaepitech/energizer/issues">issues</a> &middot;
+      <a href="mailto:florian.grima@epitech.eu">contact</a>
+    </span>
+  </footer>
+</div>
 
-        function toggleChangelog(event, btn) {
-            event.preventDefault();
-            const parent = btn.parentElement;
-            const preview = parent.querySelector('.preview');
-            const full = parent.querySelector('.full');
+<script>
+  function escapeHTML(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
-            if (full.style.display === 'none') {
-                full.style.display = 'inline';
-                preview.style.display = 'none';
-                btn.innerText = '[ - show less ]';
-            } else {
-                full.style.display = 'none';
-                preview.style.display = 'inline';
-                btn.innerText = '[ + read more ]';
-            }
-        }
+  function toggleChangelog(event, btn) {
+    event.preventDefault();
+    const p = btn.parentElement, preview = p.querySelector('.preview'), full = p.querySelector('.full');
+    const open = full.style.display === 'none';
+    full.style.display = open ? 'inline' : 'none';
+    preview.style.display = open ? 'none' : 'inline';
+    btn.innerText = open ? '[ - show less ]' : '[ + read more ]';
+  }
 
-        async function fetchReleases() {
-            const repo = "fgrimaepitech/energizer";
-            const url = `https://api.github.com/repos/${repo}/releases`;
-            const list = document.getElementById("releases-list");
+  async function fetchReleases() {
+    const list = document.getElementById("releases-list");
+    try {
+      const res = await fetch("https://api.github.com/repos/fgrimaepitech/energizer/releases");
+      const releases = await res.json();
+      if (!Array.isArray(releases)) { list.innerHTML = "<li class='muted'><em>GitHub API limit reached. Try again later.</em></li>"; return; }
+      list.innerHTML = "";
+      if (!releases.length) { list.innerHTML = "<li class='muted'>No official releases yet. See the repository for recent commits.</li>"; return; }
+      releases.slice(0, 5).forEach(r => {
+        const raw = r.published_at || r.created_at;
+        const date = raw ? new Date(raw).toISOString().split('T')[0] : 'Draft';
+        const text = escapeHTML((r.body || "No release notes provided.").trim());
+        const html = text.length > 120
+          ? `<span class="preview">${text.substring(0, 120)}...</span><span class="full" style="display:none">${text}</span><br><a class="toggle-btn" onclick="toggleChangelog(event, this)">[ + read more ]</a>`
+          : `<span>${text}</span>`;
+        const li = document.createElement("li");
+        li.className = "release-item";
+        li.innerHTML = `<strong><a href="${r.html_url}" target="_blank" rel="noopener">${r.tag_name}</a></strong> <span class="muted mono">${date}</span><div class="release-body">${html}</div>`;
+        list.appendChild(li);
+      });
+    } catch (e) {
+      list.innerHTML = "<li class='muted'><em>Could not load releases.</em></li>";
+    }
+  }
+  fetchReleases();
 
-            try {
-                const response = await fetch(url);
-                const releases = await response.json();
-
-                if (!Array.isArray(releases)) {
-                    console.error("GitHub API Error:", releases.message);
-                    list.innerHTML = `<li><em>GitHub API limit reached. Please try again in an hour.</em></li>`;
-                    return;
-                }
-
-                list.innerHTML = ""; 
-
-                if (releases.length === 0) {
-                    list.innerHTML = "<li>No official releases yet. Check the repository for recent commits.</li>";
-                    return;
-                }
-
-                releases.slice(0, 5).forEach(release => {
-                    const rawDate = release.published_at || release.created_at;
-                    const date = rawDate ? new Date(rawDate).toISOString().split('T')[0] : 'Draft';
-                    
-                    const fullText = escapeHTML((release.body || "No release notes provided.").trim());
-                    const maxLength = 120; 
-                    
-                    let contentHTML = "";
-
-                    if (fullText.length > maxLength) {
-                        const shortText = fullText.substring(0, maxLength) + "...";
-                        
-                        contentHTML = `<span class="preview">${shortText}</span><span class="full" style="display: none;">${fullText}</span><br><br><a class="toggle-btn" onclick="toggleChangelog(event, this)">[ + read more ]</a>`;
-                    } else {
-                        contentHTML = `<span>${fullText}</span>`;
-                    }
-                    
-                    const item = document.createElement("li");
-                    item.className = "release-item";
-                    
-                    item.innerHTML = `<strong><a href="${release.html_url}" target="_blank">${release.tag_name}</a></strong> — <em>${date}</em><div class="release-body">${contentHTML}</div>`;
-                    
-                    list.appendChild(item);
-                });
-            } catch (error) {
-                console.error("Fetch Error:", error);
-                list.innerHTML = "<li><em>Error loading releases. Check the developer console.</em></li>";
-            }
-        }
-
-        fetchReleases();
-    </script>
-    <script>
-        fetch('pyproject.toml')
-            .then(r => {
-                if (!r.ok) throw new Error('fetch failed');
-                return r.text();
-            })
-            .then(text => {
-                const m = text.match(/^version\s*=\s*"([^"]+)"/m);
-                if (m) {
-                    document.getElementById('version-badge').textContent = 'pypi: v' + m[1];
-                }
-            })
-            .catch(() => {
-                document.getElementById('version-badge').textContent = 'pypi: v0.1.4.2';
-            });
-    </script>
+  fetch('pyproject.toml').then(r => { if (!r.ok) throw 0; return r.text(); })
+    .then(t => { const m = t.match(/^version\s*=\s*"([^"]+)"/m); if (m) document.getElementById('version-badge').textContent = 'pypi: v' + m[1]; })
+    .catch(() => {});
+</script>
 </body>
 </html>

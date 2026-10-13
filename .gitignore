@@ -28,3 +28,4 @@ paper/*.bbl
 paper/*.blg
 paper/figures/*.pdf
 paper/tables/*.tex
+results/_archive/

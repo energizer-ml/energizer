@@ -54,7 +54,22 @@ def capture() -> Dict[str, Any]:
         "coremltools": _version("coremltools"),
         "energizer": _version("energizer"),
         "git_commit": _sh("git", "-C", root, "rev-parse", "HEAD"),
-        "git_dirty": bool(_sh("git", "-C", root, "status", "--porcelain")),
+        # Results and generated paper outputs are written *by* the run, so they
+        # must not count as "dirty" -- only source changes do.
+        "git_dirty": bool(
+            _sh(
+                "git",
+                "-C",
+                root,
+                "status",
+                "--porcelain",
+                "--",
+                ".",
+                ":!results",
+                ":!paper/tables",
+                ":!paper/figures",
+            )
+        ),
         "power_mode": (
             _sh("pmset", "-g", "batt").splitlines()[0]
             if _sh("pmset", "-g", "batt")

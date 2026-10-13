@@ -135,36 +135,85 @@ def hybrid_table(merge_all: bool) -> None:
 
 
 def convergence_table(merge_all: bool) -> None:
-    body = []
+    # one row per path: prefer a run with measured power, else the latest
+    best = {}
     for r in _rows("convergence", merge_all):
+        if not r.get("history"):
+            continue
+        has_p = bool((r.get("power") or {}).get("net"))
+        cur = best.get(r["path"])
+        if cur is None or has_p or not cur[0]:
+            best[r["path"]] = (has_p, r)
+    body = []
+    for path, (_, r) in sorted(best.items()):
         h = r["history"][-1]
+        pw_ = r.get("power") or {}
+        pr = pw_.get("net_per_run_mj") or (
+            {k: v / r.get("reps", 1) for k, v in pw_["net"].items()}
+            if pw_.get("net")
+            else None
+        )
+        energy = f"{pr['combined_net_mj'] / 1e3:.1f}" if pr else "--"
+        per_run_s = r["wall_s"] / r.get("reps", 1)
         body.append(
             (
-                r["path"].replace("_", "\\_"),
+                path.replace("_", "\\_"),
                 f"{h['loss']:.4f}",
                 f"{100 * h['test_acc']:.2f}\\%",
-                f"{h['train_s']:.1f}",
+                f"{per_run_s:.1f}",
+                energy,
             )
         )
     if body:
         _tex(
             os.path.join(OUT, "convergence.tex"),
-            ["path", "final loss", "test acc", "train s"],
+            ["path", "final loss", "test acc", "time s", "energy J"],
             body,
-            "Final loss, accuracy and training time per path (same seed and data).",
+            "Same seed and data: final loss, accuracy, wall time and idle-subtracted energy per training run.",
             "tab:convergence",
+        )
+
+
+def power_table(merge_all: bool) -> None:
+    """Idle-subtracted power and energy per run by compute units (needs --power data)."""
+    acc = defaultdict(lambda: defaultdict(list))
+    for r in _rows("placement_sweep", merge_all):
+        pn = r.get("power_net")
+        if not pn or r.get("precision") != "fp16":
+            continue
+        key = (r["spec"]["kind"], r["compute_units"].replace("_", "\\_"))
+        for rail in ("cpu", "gpu", "ane"):
+            if f"{rail}_net_mw" in pn:
+                acc[key][rail].append(pn[f"{rail}_net_mw"])
+        if r.get("energy_per_run_mj") is not None:
+            acc[key]["mj"].append(r["energy_per_run_mj"])
+    body = []
+    for (kind, cu), d in sorted(acc.items()):
+        f = lambda k, fmt="{:.0f}": fmt.format(median(d[k])) if d[k] else "--"
+        body.append((kind, cu, f("cpu"), f("gpu"), f("ane"), f("mj", "{:.3f}")))
+    if body:
+        _tex(
+            os.path.join(OUT, "power_by_units.tex"),
+            ["workload", "units", "CPU mW", "GPU mW", "ANE mW", "mJ/run"],
+            body,
+            "Median idle-subtracted power per rail and energy per inference (fp16).",
+            "tab:power",
         )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--all", action="store_true")
+    ap.add_argument(
+        "--latest", action="store_true", help="only the newest file per experiment"
+    )
     a = ap.parse_args()
+    a.all = not a.latest  # default: merge every run (resumed sweeps span files)
     placement_table(a.all)
     baseline_table(a.all)
     efficiency_table(a.all)
     hybrid_table(a.all)
     convergence_table(a.all)
+    power_table(a.all)
 
 
 if __name__ == "__main__":
