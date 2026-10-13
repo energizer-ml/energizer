@@ -1,3 +1,4 @@
+from energizer.backend import normalize_device
 from energizer.neural_network import Module
 import energizer
 
@@ -15,6 +16,8 @@ class Sequential(Module):
         return x
 
     def to(self, device: str):
+        device = normalize_device(device)
         for layer in self.layers:
             layer.to(device)
+        self.device = device
         return self

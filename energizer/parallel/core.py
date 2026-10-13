@@ -1,4 +1,5 @@
 from __future__ import annotations
+from energizer.backend import normalize_device
 
 from dataclasses import dataclass
 from typing import Callable, Iterable, Iterator, Sequence
@@ -29,6 +30,7 @@ def _split_ranges(size: int, parts: int) -> list[tuple[int, int]]:
 
 
 def _array_split(raw, parts: int, axis: int, device: str):
+    device = normalize_device(device)
     _ = device
     axis = _normalize_axis(axis, len(raw.shape))
     ranges = _split_ranges(raw.shape[axis], parts)
@@ -195,6 +197,7 @@ class ShardedTensor:
         return gather(self)
 
     def to(self, device: str) -> "ShardedTensor":
+        device = normalize_device(device)
         return ShardedTensor(
             [shard.to(device) for shard in self.shards],
             axis=self.axis,
@@ -263,7 +266,7 @@ def all_sum(value: Tensor | Sequence[Tensor], group: DeviceGroup | None = None):
 
     group = group or DeviceGroup.local(1)
     if isinstance(value, Tensor):
-        if group.is_distributed and value.device == "gpu":
+        if group.is_distributed and value.device == "mlx":
             return _DistributedAllSum.apply(value, group)
         return value
 
@@ -296,7 +299,7 @@ def average_gradients(module: Module, group: DeviceGroup | None = None) -> Modul
         if param.grad is None:
             continue
         grad = param.grad.data if isinstance(param.grad, Tensor) else param.grad
-        if group.is_distributed and param.device == "gpu":
+        if group.is_distributed and param.device == "mlx":
             grad = _distributed_all_sum(grad, group) / group.size
             _replace_grad(param, grad)
     return module
@@ -329,9 +332,11 @@ def data_parallel_step(
 
 
 def raw_split(data, parts: int, axis: int, device: str):
+    device = normalize_device(device)
     return _array_split(data, parts=parts, axis=axis, device=device)
 
 
 def raw_concat(arrays: Iterable, axis: int, device: str):
+    device = normalize_device(device)
     lib = backend.lib(device)
     return lib.concatenate(tuple(arrays), axis=axis)

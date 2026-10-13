@@ -1,131 +1,92 @@
+from energizer.backend import normalize_device
 from energizer.neural_network import Module, Parameter
 from energizer.tensor import Tensor
 import numpy as np
 from energizer._mlx import mx
 
 
-class BatchNorm1d(Module):
+class _BatchNorm(Module):
+    """Batch norm over channel dim 1, built from differentiable Tensor ops.
+
+    Running statistics are plain arrays on the input's device and are updated
+    outside the autograd graph (unbiased variance, like PyTorch).
+    """
+
+    _ndims = ()  # accepted input ranks
+
     def __init__(self, num_features: int, eps: float = 1e-5, momentum: float = 0.1):
         super().__init__()
         self.num_features = num_features
         self.eps = eps
         self.momentum = momentum
-
-        self.gamma = Tensor(np.zeros(num_features), requires_grad=True)
-        self.beta = Tensor(np.zeros(num_features), requires_grad=True)
-
-        self.running_mean = np.zeros(num_features)
-        self.running_var = np.ones(num_features)
-
-        self.training = True
-
-    def forward(self, x: Tensor) -> Tensor:
-        if self.training:
-            if len(x.data.shape) == 2:
-                mean = x.data.mean(axis=0)
-                var = x.data.var(axis=0)
-            else:
-                mean = x.data.mean(axis=(0, 2))
-                var = x.data.var(axis=(0, 2))
-
-            self.running_mean = (
-                1 - self.momentum
-            ) * self.running_mean + self.momentum * mean
-            self.running_var = (
-                1 - self.momentum
-            ) * self.running_var + self.momentum * var
-
-            x_normalized = (x.data - mean) / np.sqrt(var + self.eps)
-
-        else:
-            x_normalized = (x.data - self.running_mean) / np.sqrt(
-                self.running_var + self.eps
-            )
-
-        if len(x.data.shape) == 2:
-            result = x_normalized * self.gamma + self.beta
-        else:
-            gamma_reshaped = self.gamma.data.reshape(1, -1, 1)
-            beta_reshaped = self.beta.data.reshape(1, -1, 1)
-            result = x_normalized * gamma_reshaped + beta_reshaped
-
-        return Tensor(result, requires_grad=x.requires_grad)
-
-    def eval(self):
-        self.training = False
-
-    def train(self):
-        self.training = True
-
-    def parameters(self):
-        return [self.gamma, self.beta]
-
-
-class BatchNorm2d(Module):
-    def __init__(self, num_features: int, eps: float = 1e-5, momentum: float = 0.1):
-        super().__init__()
-        self.num_features = num_features
-        self.eps = eps
-        self.momentum = momentum
-
         self.gamma = Parameter(np.ones(num_features), requires_grad=True)
         self.beta = Parameter(np.zeros(num_features), requires_grad=True)
-
-        self.running_mean = np.zeros(num_features)
-        self.running_var = np.ones(num_features)
-
+        self.running_mean = np.zeros(num_features, dtype=np.float32)
+        self.running_var = np.ones(num_features, dtype=np.float32)
         self.training = True
 
-    def forward(self, x: Tensor) -> Tensor:
-        if len(x.data.shape) != 4:
-            raise ValueError("BatchNorm2d only supports 4D input tensors")
+    # -- helpers ---------------------------------------------------------
+    @staticmethod
+    def _on(arr, device):
+        if device == "mlx":
+            return arr if isinstance(arr, mx.array) else mx.array(np.asarray(arr))
+        return np.asarray(arr) if not isinstance(arr, np.ndarray) else arr
 
-        batch_size, channels, height, width = x.data.shape
+    def _check(self, x: Tensor):
+        if len(x.data.shape) not in self._ndims:
+            raise ValueError(
+                f"{type(self).__name__} expects {self._ndims}D input, "
+                f"got {len(x.data.shape)}D"
+            )
+
+    def forward(self, x: Tensor) -> Tensor:
+        self._check(x)
+        nd = len(x.data.shape)
+        axes = tuple(i for i in range(nd) if i != 1)
+        view = [1] * nd
+        view[1] = self.num_features
+        view = tuple(view)
 
         if self.training:
-            mean = x.data.mean(axis=(0, 2, 3))
-            var = x.data.var(axis=(0, 2, 3))
-
-            self.running_mean = (
-                1 - self.momentum
-            ) * self.running_mean + self.momentum * mean
-            self.running_var = (
-                1 - self.momentum
-            ) * self.running_var + self.momentum * var
-
-            # reshape for broadcasting
-            mean_reshaped = mean.reshape(1, channels, 1, 1)
-            var_reshaped = var.reshape(1, channels, 1, 1)
-
+            mean = x.mean(axis=axes, keepdims=True)
+            centered = x - mean
+            var = (centered * centered).mean(axis=axes, keepdims=True)
+            n = x.data.size // self.num_features
+            unbias = n / max(n - 1, 1)
+            m = self.momentum
+            rm = self._on(self.running_mean, x.device)
+            rv = self._on(self.running_var, x.device)
+            self.running_mean = (1 - m) * rm + m * mean.data.reshape(-1)
+            self.running_var = (1 - m) * rv + m * unbias * var.data.reshape(-1)
+            out = centered / ((var + self.eps) ** 0.5)
         else:
-            mean_reshaped = self.running_mean.reshape(1, channels, 1, 1)
-            var_reshaped = self.running_var.reshape(1, channels, 1, 1)
+            rm = Tensor(
+                self._on(self.running_mean, x.device).reshape(view), device=x.device
+            )
+            rv = Tensor(
+                self._on(self.running_var, x.device).reshape(view), device=x.device
+            )
+            out = (x - rm) / ((rv + self.eps) ** 0.5)
 
-        x_normalized = (x.data - mean_reshaped) / (var_reshaped + self.eps) ** 0.5
-
-        gamma_reshaped = self.gamma.data.reshape(1, channels, 1, 1)
-        beta_reshaped = self.beta.data.reshape(1, channels, 1, 1)
-
-        result = x_normalized * gamma_reshaped + beta_reshaped
-
-        return Tensor(result, requires_grad=x.requires_grad, device=x.device)
+        return out * self.gamma.reshape(view) + self.beta.reshape(view)
 
     def to(self, device: str):
+        device = normalize_device(device)
         super().to(device)
-        if device == "gpu" and mx is not None:
-            if isinstance(self.running_mean, np.ndarray):
-                self.running_mean = mx.array(self.running_mean)
-            if isinstance(self.running_var, np.ndarray):
-                self.running_var = mx.array(self.running_var)
-        else:
-            if not isinstance(self.running_mean, np.ndarray):
-                self.running_mean = np.array(self.running_mean)
-            if not isinstance(self.running_var, np.ndarray):
-                self.running_var = np.array(self.running_var)
+        self.running_mean = self._on(self.running_mean, device)
+        self.running_var = self._on(self.running_var, device)
         return self
 
     def eval(self):
         self.training = False
 
-    def train(self):
-        self.training = True
+    def train(self, mode: bool = True):
+        self.training = mode
+
+
+class BatchNorm1d(_BatchNorm):
+    _ndims = (2, 3)
+
+
+class BatchNorm2d(_BatchNorm):
+    _ndims = (4,)

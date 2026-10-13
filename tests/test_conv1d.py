@@ -370,7 +370,7 @@ class TestConv1d(unittest.TestCase):
         )
 
         # Backward pass
-        my_output.backward()
+        my_output.sum().backward()
         torch_output.sum().backward()
 
         # Compare input gradients

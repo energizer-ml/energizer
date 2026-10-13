@@ -25,4 +25,4 @@ jobs:
     - name: Run Black
       # The --check flag will cause the step to fail if files are not formatted correctly
       run: |
-        black --check energizer/ tests/ src/
+        black --check energizer/ tests/ experiments/ examples/ scripts/

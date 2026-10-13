@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software or its measurements, please cite it as below."
+title: "Energizer: a testbed for Apple Neural Engine deep-learning workloads"
+type: software
+authors:
+  - family-names: GRIMA
+    given-names: Florian
+repository-code: "https://github.com/fgrimaepitech/energizer"
+license: MIT
+version: 0.1.8

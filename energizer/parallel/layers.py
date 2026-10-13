@@ -1,4 +1,5 @@
 from __future__ import annotations
+from energizer.backend import normalize_device
 
 from typing import Literal
 
@@ -15,17 +16,19 @@ ShardType = Literal["all-to-sharded", "sharded-to-all"]
 
 
 def _init_weight(rows: int, cols: int, device: str):
-    if device == "gpu":
+    device = normalize_device(device)
+    if device == "mlx":
         if mx is None:
-            raise RuntimeError("Cannot initialize GPU sharded layer without MLX")
+            raise RuntimeError("Cannot initialize MLX sharded layer without MLX")
         return mx.random.normal(shape=(rows, cols)) * 0.01
     return np.random.randn(rows, cols).astype(np.float32) * 0.01
 
 
 def _init_bias(size: int, device: str):
-    if device == "gpu":
+    device = normalize_device(device)
+    if device == "mlx":
         if mx is None:
-            raise RuntimeError("Cannot initialize GPU sharded layer without MLX")
+            raise RuntimeError("Cannot initialize MLX sharded layer without MLX")
         return mx.zeros(size)
     return np.zeros(size, dtype=np.float32)
 
@@ -61,6 +64,7 @@ class AllToShardedLinear(_ShardedLinearBase):
         group: DeviceGroup | None = None,
         device: str = "cpu",
     ):
+        device = normalize_device(device)
         super().__init__(device=device)
         self.in_features = in_features
         self.out_features = out_features
@@ -127,6 +131,7 @@ class ShardedToAllLinear(_ShardedLinearBase):
         group: DeviceGroup | None = None,
         device: str = "cpu",
     ):
+        device = normalize_device(device)
         super().__init__(device=device)
         self.in_features = in_features
         self.out_features = out_features

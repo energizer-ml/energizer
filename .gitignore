@@ -16,3 +16,15 @@ dataset/
 src/test_*.py
 __pycache__/
 model.mlpackage/
+*.egg-info/
+.pytest_cache/
+.venv/
+# paper build products
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.pdf
+paper/*.bbl
+paper/*.blg
+paper/figures/*.pdf
+paper/tables/*.tex

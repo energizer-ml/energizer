@@ -1,333 +1,80 @@
 # Energizer
 
-> A lightweight PyTorch-like deep learning library for Apple's Neural Engine.
+> A small PyTorch-like deep-learning library for Apple Silicon, used as a testbed
+> to study **what the Apple Neural Engine (ANE) can and cannot do for training**.
 
-[![PyPI version](https://img.shields.io/pypi/v/energizer)](https://pypi.org/project/energizer/)
-[![Python](https://img.shields.io/pypi/pyversions/energizer)](https://pypi.org/project/energizer/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Lint](https://github.com/fgrimaepitech/energizer/actions/workflows/lint.yml/badge.svg)](https://github.com/fgrimaepitech/energizer/actions/workflows/lint.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Energizer provides a familiar, PyTorch-style API for building and training neural networks with **first-class support for Apple Silicon** via the [MLX](https://github.com/ml-explore/mlx) backend. It falls back to NumPy on CPU, making it suitable for prototyping on any platform.
+This repository contains
 
----
+1. **`energizer/`** – the library: autograd, layers, optimizers, an MLX/Metal
+   backend, a Core ML compiler (`backpack`) and a data-parallel layer (`parallel`).
+2. **`experiments/`** – the measurement harness behind the paper. Every number is
+   regenerated from raw JSON Lines in `results/` by a script.
+3. **`paper/`** – manuscript sources and generated tables.
+4. **`docs/`** – research plan, hardware/software claims, API reference.
 
-## Features
+## What runs where (important)
 
-- **Autograd** — Automatic differentiation through a `Function` graph, with `.backward()` on any `Tensor`.
-- **Dual backend** — CPU via NumPy, GPU via Apple MLX. Switch with `.to("gpu")`.
-- **PyTorch-like API** — `Module`, `Parameter`, `Sequential`, `Optimizer` — familiar patterns, zero friction.
-- **Full layer library** — Linear, Conv1d/2d, Transformer, Embedding, Normalization, Pooling, and more.
-- **Model serialization** — `model.save()` / `Model.load()` out of the box.
-- **Lightweight** — Pure Python, minimal dependencies (`numpy`, `mlx`).
+| Path in this repo | Silicon actually used | Notes |
+|---|---|---|
+| `device="cpu"` | CPU | NumPy |
+| `device="mlx"` | **GPU** (Metal) | MLX. *Not* the ANE. Formerly called `"gpu"`, kept as deprecated alias. |
+| `energizer.backpack` (Core ML) | CPU / GPU / **ANE** | Inference only. Core ML decides placement; see `docs/claims.md`. |
 
----
-
-## Installation
-
-```bash
-pip install energizer
-```
-
-For GPU acceleration on Apple Silicon:
-
-```bash
-pip install "energizer[gpu]"
-```
-
-For development:
-
-```bash
-pip install "energizer[dev]"
-```
-
-**Requirements:** Python 3.10, 3.11, or 3.12 (Maximum 3.12 required for `coremltools` support)
-
----
+MLX has no ANE backend. The ANE is only reachable through Core ML, which exposes
+no public training or backward-pass API; Core ML also gives no control over
+placement beyond `MLComputeUnits`.
 
 ## Quickstart
 
-```python
-import energizer
-
-# Build a model
-model = energizer.Sequential(
-    energizer.Linear(784, 256),
-    energizer.ReLU(),
-    energizer.Dropout(p=0.3),
-    energizer.Linear(256, 10),
-)
-
-# Move to Apple Neural Engine
-model.to("gpu")
-
-# Forward pass
-x = energizer.Tensor.randn(32, 784, device="gpu")
-output = model(x)
-
-# Loss + backward
-loss_fn = energizer.CrossEntropyLoss()
-target  = energizer.Tensor.zeros((32,), device="gpu")
-loss    = loss_fn(output, target)
-loss.backward()
-
-# Optimizer step
-optimizer = energizer.Adam(model.parameters(), lr=1e-3)
-optimizer.step()
-optimizer.zero_grad()
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest tests
 ```
 
----
-
-## API Reference
-
-### Tensor
-
-The core data structure. Wraps NumPy arrays on CPU and MLX arrays on GPU.
-
 ```python
-t = energizer.Tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
+import energizer as ez
 
-# Creation helpers
-energizer.Tensor.randn(3, 4)
-energizer.Tensor.zeros((3, 4))
-energizer.Tensor.ones((3, 4))
-
-# Device transfer
-t.to("gpu")   # → Apple Neural Engine (MLX)
-t.to("cpu")   # → NumPy
-
-# Supported operators
-t + t  |  t - t  |  t * t  |  t / t
-t @ t  |  t ** 2 |  -t
-t.sum()  |  t.mean()  |  t.T
-t.reshape((4, 2))  |  t.view((4, 2))
-t.transpose(0, 1)
-
-# Autograd
-loss = (model(x) - target).mean()
+model = ez.Sequential(ez.Linear(784, 256), ez.ReLU(), ez.Linear(256, 10)).to("mlx")
+x = ez.Tensor.randn(32, 784, device="mlx")
+loss = ez.CrossEntropyLoss()(model(x), ez.Tensor.zeros((32,), device="mlx"))
 loss.backward()
 ```
 
----
+Full API: [`docs/api.md`](docs/api.md).
 
-### Module
-
-Base class for all layers. Subclass it to define custom layers.
-
-```python
-class MyLayer(energizer.Module):
-    def __init__(self):
-        super().__init__()
-        self.w = energizer.Parameter(energizer.Tensor.randn(4, 4))
-
-    def forward(self, x):
-        return x @ self.w
-
-model.parameters()        # list of trainable Parameters
-model.to("gpu")           # move all parameters to device
-model.train() / .eval()   # toggle training mode (affects Dropout, BatchNorm)
-model.save("model.npz")   # serialize to disk
-model.load("model.npz")   # restore from disk
-```
-
----
-
-### Layers
-
-#### Linear
-
-```python
-energizer.Linear(in_features=128, out_features=64, bias=True)
-```
-
-#### Convolutional
-
-```python
-energizer.Conv1d(in_channels, out_channels, kernel_size, stride=1, padding=0)
-energizer.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0)
-energizer.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=1, padding=0)
-```
-
-#### Activation Functions
-
-```python
-energizer.ReLU()
-energizer.LeakyReLU(negative_slope=0.01)
-energizer.Sigmoid()
-energizer.GELU()
-```
-
-#### Normalization
-
-```python
-energizer.BatchNorm1d(num_features)
-energizer.BatchNorm2d(num_features)
-energizer.LayerNorm(normalized_shape)
-```
-
-#### Pooling
-
-```python
-energizer.MaxPool2d(kernel_size, stride=None, padding=0)
-energizer.AvgPool2d(kernel_size, stride=None, padding=0)
-```
-
-#### Regularization
-
-```python
-energizer.Dropout(p=0.5)
-```
-
-#### Shape Manipulation
-
-```python
-energizer.Flatten(start_dim=1, end_dim=-1)
-energizer.Reshape(shape)
-energizer.Trim(start, end)
-```
-
-#### Containers
-
-```python
-energizer.Sequential(*layers)          # forward through layers in order
-energizer.ModuleList([layer1, layer2]) # list of modules, no auto-forward
-```
-
-#### Residual Blocks
-
-```python
-energizer.ResidualBlock(channels)
-energizer.BottleneckBlock(in_channels, out_channels)
-```
-
-#### Transformer
-
-```python
-energizer.TransformerEncoderLayer(d_model, nhead, dim_feedforward=2048, dropout=0.1)
-energizer.TransformerEncoder(encoder_layer, num_layers)
-```
-
-#### Embedding
-
-```python
-energizer.Embedding(num_embeddings, embedding_dim)
-```
-
-#### AutoEncoder
-
-```python
-energizer.AutoEncoder(device="cpu")   # pre-configured convolutional autoencoder
-```
-
----
-
-### Loss Functions
-
-```python
-energizer.MSELoss(reduction="mean")
-energizer.CrossEntropyLoss(reduction="mean")
-```
-
----
-
-### Optimizers
-
-#### SGD
-
-```python
-energizer.SGD(
-    model.parameters(),
-    lr=0.01,
-    momentum=0.9,
-    weight_decay=1e-4,
-    nesterov=False,
-)
-```
-
-#### Adam
-
-```python
-energizer.Adam(
-    model.parameters(),
-    lr=1e-3,
-    betas=(0.9, 0.999),
-    eps=1e-8,
-    weight_decay=0,
-    amsgrad=False,
-)
-```
-
----
-
-### Functional API
-
-```python
-from energizer import functionnal as F
-
-F.max(tensor, floor=0.0)                     # element-wise max with a floor
-F.as_strided(tensor, shape, strides)         # strided view of a tensor
-F.trace(tensor)                              # trace of a 2D matrix
-```
-
----
-
-## Training Loop Example
-
-```python
-import energizer
-
-model     = energizer.Sequential(energizer.Linear(4, 8), energizer.ReLU(), energizer.Linear(8, 1))
-optimizer = energizer.Adam(model.parameters(), lr=1e-3)
-loss_fn   = energizer.MSELoss()
-
-model.train()
-for epoch in range(100):
-    optimizer.zero_grad()
-
-    x      = energizer.Tensor.randn(16, 4)
-    target = energizer.Tensor.zeros((16, 1))
-
-    output = model(x)
-    loss   = loss_fn(output, target)
-    loss.backward()
-    optimizer.step()
-
-    if epoch % 10 == 0:
-        print(f"Epoch {epoch:3d} | Loss: {loss.item():.4f}")
-```
-
----
-
-## Roadmap
-
-### Layers
-- [ ] Softmax activation
-- [ ] Huber Loss
-
-### Infrastructure
-- [ ] GPU autograd pass (MLX-native backward)
-- [ ] Mixed precision training
-- [ ] `DataLoader` / `Dataset` abstractions
-
----
-
-## Contributing
-
-Pull requests are welcome. Please make sure your code is formatted with [Black](https://black.readthedocs.io/) before submitting — the CI will enforce it:
+## Reproducing the results
 
 ```bash
-black energizer/ tests/ src/
+make smoke        # a few configs, ~minutes, validates the toolchain
+make sweep        # placement / latency sweep (step 3)
+sudo -E make power  # same sweep + powermetrics (needs root)
+make baselines    # MLX vs PyTorch-MPS vs Core ML (step 4)
+make tables       # results/*.jsonl -> paper/tables/*.tex
 ```
 
----
+Each result file starts with an `env` record (chip, macOS build, library
+versions, git commit, dirty flag) so a number can always be traced to the setup
+that produced it. Requirements: Apple Silicon Mac, macOS 14.4+ (for
+`MLComputePlan`), Python 3.10-3.12. Power needs `sudo` for `powermetrics`.
+
+## Research plan
+
+See [`docs/research_plan.md`](docs/research_plan.md) for the ordered work items
+(backend claim fix, harness, sweeps, baselines, MLX-native backward, hybrid
+ANE-forward / GPU-backward prototype, private-API decision) and their status.
+
+## Citation
+
+See [`CITATION.cff`](CITATION.cff).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
+MIT, see [LICENSE](LICENSE).
 
 ## Author
 
-**Florian GRIMA** — [florian.grima@epitech.eu](mailto:florian.grima@epitech.eu)  
-[GitHub](https://github.com/fgrimaepitech) · [PyPI](https://pypi.org/project/energizer/) · [Issues](https://github.com/fgrimaepitech/energizer/issues)
+Florian GRIMA – [@fgrimaepitech](https://github.com/fgrimaepitech)

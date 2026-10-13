@@ -87,20 +87,14 @@ class Adam(Optimizer):
 
                 grad = p.grad.data if hasattr(p.grad, "data") else p.grad
 
-                if not isinstance(grad, np.ndarray):
-                    grad = np.array(grad)
-
                 p_data = p.data
                 is_mlx = hasattr(p_data, "__class__") and "mlx" in str(type(p_data))
-                if is_mlx and not (
-                    hasattr(grad, "__class__") and "mlx" in str(type(grad))
-                ):
+                grad_is_mlx = "mlx" in str(type(grad))
+                if is_mlx and not grad_is_mlx:
                     import mlx.core as mx
 
-                    grad = mx.array(grad)
-                elif not is_mlx and (
-                    hasattr(grad, "__class__") and "mlx" in str(type(grad))
-                ):
+                    grad = mx.array(np.asarray(grad))
+                elif not is_mlx and not isinstance(grad, np.ndarray):
                     grad = np.array(grad)
 
                 if maximize:

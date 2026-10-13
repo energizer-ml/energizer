@@ -1,0 +1,53 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\title{What Can the Apple Neural Engine Do for Deep-Learning Training?\\
+\large A Measurement Study with Energizer}
+\author{Florian Grima}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{abstract}
+TODO.
+\end{abstract}
+
+\section{Introduction}
+% Write last, once the claim is settled (docs/claims.md).
+
+\section{Background and Related Work}
+Apple's Neural Engine (ANE) is reachable only through Core~ML~\cite{coreml};
+MLX~\cite{mlx2023} and PyTorch's MPS backend~\cite{paszke2019pytorch} execute on
+the GPU through Metal. Apple documents ANE-oriented transformer design
+choices~\cite{apple2022anetransformers}, and community reverse-engineering
+efforts describe ANE behaviour beyond the public documentation
+\cite{hollance2020neuralengine}.
+% TODO: add reverse-engineering / private-API ANE training work after VERIFY of
+% each source (see refs.bib). State clearly what we did and did not use.
+
+\section{Methodology}
+% Harness, metrics, idle-power subtraction, warm-up and repeats, thermal control:
+% see docs/REPRODUCE.md.
+
+\section{Characterisation of ANE Placement, Latency and Power}
+% \input{tables/placement_ane_fraction}
+% \includegraphics{figures/ane_placement.pdf}
+
+\section{Baselines and Achieved-vs-Peak Efficiency}
+% \input{tables/baselines_latency}
+% \input{tables/measured_peak}
+
+\section{Training Paths}
+% MLX-native backward (train_step), hybrid overhead breakdown (hybrid_overhead),
+% convergence / time-to-accuracy (convergence).
+
+\section{Limitations}
+Single chip and OS build; Core~ML placement is a planner decision that may differ
+at run time; no public ANE backward pass exists, so the hybrid path pays a full
+recompilation per weight refresh; results are for small models and
+inference-style forward passes; no private APIs were used.
+
+\bibliographystyle{plain}
+\bibliography{refs}
+\end{document}

@@ -1,0 +1,7 @@
+{
+  "title": "Energizer: a testbed for Apple Neural Engine deep-learning workloads",
+  "creators": [{"name": "GRIMA, Florian"}],
+  "license": "MIT",
+  "upload_type": "software",
+  "description": "Library and measurement harness behind the paper. Raw results, tables and figures regenerate with `make reproduce` (see docs/REPRODUCE.md)."
+}
