@@ -18,24 +18,16 @@ class Dropout(Module):
             return x
 
         scale = 1.0 / (1.0 - self.p)
-        # Always generate mask in numpy; convert to the right backend below
-        mask = (np.random.rand(*x.data.shape) > self.p).astype(np.float32) * scale
-
-        try:
+        if x.device == "mlx":
             import mlx.core as mx
 
-            if isinstance(x.data, mx.array):
-                out = x.data * mx.array(mask)
-            else:
-                out = x.data * mask
-        except ImportError:
-            out = x.data * mask
-
-        return Tensor(
-            out,
-            requires_grad=x.requires_grad,
-            device=x.device,
-        )
+            mask = (mx.random.uniform(shape=x.data.shape) > self.p).astype(
+                mx.float32
+            ) * scale
+        else:
+            mask = (np.random.rand(*x.data.shape) > self.p).astype(np.float32) * scale
+        # multiplying by a constant Tensor keeps the op differentiable
+        return x * Tensor(mask, device=x.device)
 
     def eval(self):
         self.training = False

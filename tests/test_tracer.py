@@ -1,6 +1,6 @@
 import pytest
 from energizer.autograd import Tensor
-from energizer.coreml.tracer import Tracer, TraceData
+from energizer.backpack.compiler.tracer import Tracer, TraceData
 
 
 def test_tracing_basic_mlp():

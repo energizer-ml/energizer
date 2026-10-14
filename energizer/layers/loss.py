@@ -19,10 +19,53 @@ class MSELoss(Module):
         return diff.mean()
 
 
+def _is_mlx(a) -> bool:
+    return mx is not None and isinstance(a, mx.array)
+
+
+def _ce_forward_mlx(logits_data, target_data, reduction):
+    """Cross-entropy on MLX arrays; stays lazy, no host transfer."""
+    logits = logits_data.astype(mx.float32)
+    target = target_data if _is_mlx(target_data) else mx.array(np.asarray(target_data))
+    log_probs = logits - mx.logsumexp(logits, axis=1, keepdims=True)
+    if target.ndim == 1:
+        idx = target.astype(mx.int32)[:, None]
+        nll = -mx.take_along_axis(log_probs, idx, axis=1)[:, 0]
+    else:
+        nll = -(target.astype(mx.float32) * log_probs).sum(axis=1)
+    if reduction == "sum":
+        return nll.sum()
+    if reduction == "mean":
+        return nll.mean()
+    return nll
+
+
+def _ce_backward_mlx(logits_data, target_data, reduction, grad):
+    logits = logits_data.astype(mx.float32)
+    target = target_data if _is_mlx(target_data) else mx.array(np.asarray(target_data))
+    probs = mx.softmax(logits, axis=1)
+    if target.ndim == 1:
+        classes = mx.arange(logits.shape[1])[None, :]
+        onehot = (classes == target.astype(mx.int32)[:, None]).astype(mx.float32)
+    else:
+        onehot = target.astype(mx.float32)
+    g = probs - onehot
+    if reduction == "mean":
+        g = g / logits.shape[0]
+    up = grad if _is_mlx(grad) else mx.array(np.asarray(grad, dtype=np.float32))
+    if up.size == 1:
+        up = up.reshape(())
+        return g * up
+    return g * up[:, None]  # reduction="none": per-sample upstream gradient
+
+
 class CrossEntropyFn(autograd.Function):
     @staticmethod
     def forward(ctx, logits_data, target_data, reduction):
         ctx.save_for_backward(logits_data, target_data, reduction)
+
+        if _is_mlx(logits_data):
+            return _ce_forward_mlx(logits_data, target_data, reduction)
 
         logits_np = np.array(logits_data).astype(np.float32)
         target_np = np.array(target_data)
@@ -51,6 +94,13 @@ class CrossEntropyFn(autograd.Function):
     @staticmethod
     def backward(ctx, grad):
         logits_data, target_data, reduction = ctx.saved_tensors
+
+        if _is_mlx(logits_data):
+            return (
+                _ce_backward_mlx(logits_data, target_data, reduction, grad),
+                None,
+                None,
+            )
 
         logits_np = np.array(logits_data).astype(np.float32)
         target_np = np.array(target_data)

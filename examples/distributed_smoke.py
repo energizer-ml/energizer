@@ -8,7 +8,7 @@ import energizer as ez
 
 def main():
     group = ez.init_device_group(distributed=True)
-    x = ez.tensor([float(group.rank + 1)], device="gpu")
+    x = ez.tensor([float(group.rank + 1)], device="mlx")
     total = ez.all_sum(x, group=group)
 
     print(

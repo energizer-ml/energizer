@@ -1,3 +1,4 @@
+from energizer.backend import normalize_device
 from typing import Dict, List, Any, Callable
 
 from energizer.tensor import Tensor
@@ -7,6 +8,7 @@ from energizer._mlx import mx
 
 class Module:
     def __init__(self, device: str = "cpu"):
+        device = normalize_device(device)
         self._parameters = {}
         self._modules = {}
         self.device = device
@@ -95,10 +97,11 @@ class Module:
     def load_state_dict(self, state_dict):
         def _from_numpy(arr_np, device: str):
             # Restore to the target device
-            if device == "gpu":
+            device = normalize_device(device)
+            if device == "mlx":
                 if mx is None:
                     raise RuntimeError(
-                        "Cannot load GPU weights because mlx is not available"
+                        "Cannot load MLX weights because mlx is not available"
                     )
                 return mx.array(arr_np)
             return np.array(arr_np)
@@ -124,6 +127,7 @@ class Module:
         np.savez(filepath, **state_dict)
 
     def to(self, device: str):
+        device = normalize_device(device)
         for name, param in self._parameters.items():
             if param is not None:
                 new_param = param.to(device)
@@ -162,8 +166,8 @@ class Optimizer:
                     merged_group = {**defaults, **param_group}
                     self.add_param_group(merged_group)
             else:
-                for param in params:
-                    self.add_param_group({**defaults, "params": param})
+                # one group holding every parameter (not one group per tensor)
+                self.add_param_group({**defaults, "params": list(params)})
         else:
             if isinstance(params, (list, tuple)) and len(params) == 0:
                 self.add_param_group({**defaults, "params": []})
@@ -171,6 +175,12 @@ class Optimizer:
                 self.add_param_group({**defaults, "params": params})
 
     def add_param_group(self, param_group: dict):
+        group_params = param_group["params"]
+        if isinstance(group_params, Tensor):
+            # a bare Tensor must never be iterated: that walks its rows
+            param_group = {**param_group, "params": [group_params]}
+        elif not isinstance(group_params, list):
+            param_group = {**param_group, "params": list(group_params)}
         self.param_groups.append(param_group)
 
     def load_state_dict(self, state_dict: dict):

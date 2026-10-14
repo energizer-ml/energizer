@@ -1,3 +1,4 @@
+from energizer.backend import normalize_device
 from energizer.neural_network import Module, Parameter
 import energizer
 import numpy as np
@@ -19,6 +20,7 @@ class ConvTranspose2d(Module):
         dilation: tuple = 1,
         device: str = "cpu",
     ):
+        device = normalize_device(device)
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -48,7 +50,7 @@ class ConvTranspose2d(Module):
             self.kernel_size[1],
         )
 
-        if device == "gpu":
+        if device == "mlx":
             weight_data = mx.random.normal(weight_shape) * 0.01
             bias_data = mx.zeros(out_channels) if bias else None
         else:
@@ -65,118 +67,22 @@ class ConvTranspose2d(Module):
     def forward(self, x: Tensor) -> Tensor:
         if x.device != self.device:
             x = x.to(self.device)
-
-        batch_size, in_channels, height, width = x.shape
-
-        kh, kw = self.kernel_size
-        sh, sw = self.stride
-        ph, pw = self.padding
-        oph, opw = self.output_padding
-        dh, dw = self.dilation
-
-        if (dh, dw) != (1, 1):
+        if self.dilation != (1, 1):
             raise NotImplementedError(
                 "ConvTranspose2d dilation != 1 is not supported yet"
             )
-
-        if self.device == "gpu":
-            if not isinstance(x.data, mx.array):
-                x_data = mx.array(x.data)
-            else:
-                x_data = x.data
-
-            if not isinstance(self.weight.data, mx.array):
-                weight_data = mx.array(self.weight.data)
-            else:
-                weight_data = self.weight.data
-
-            x_channels_last = mx.transpose(x_data, (0, 2, 3, 1))
-
-            weight_mlx = mx.transpose(weight_data, (1, 2, 3, 0))
-
-            kwargs = {
-                "stride": (sh, sw),
-                "padding": (ph, pw),
-                "dilation": (dh, dw),
-                "groups": self.groups,
-            }
-            if (oph, opw) != (0, 0):
-                kwargs["output_padding"] = (oph, opw)
-
-            output = mx.conv_transpose2d(x_channels_last, weight_mlx, **kwargs)
-            output = mx.transpose(output, (0, 3, 1, 2))
-        else:
-            x_data = x.data if isinstance(x.data, np.ndarray) else np.array(x.data)
-            weight_data = (
-                self.weight.data
-                if isinstance(self.weight.data, np.ndarray)
-                else np.array(self.weight.data)
+        if self.groups != 1:
+            raise NotImplementedError(
+                "ConvTranspose2d groups != 1 is not supported yet"
             )
+        from energizer.layers.conv import ConvTranspose2dFn
 
-            out_height = (height - 1) * sh - 2 * ph + (kh - 1) + oph + 1
-            out_width = (width - 1) * sw - 2 * pw + (kw - 1) + opw + 1
-
-            up_h = (height - 1) * sh + 1
-            up_w = (width - 1) * sw + 1
-            upsampled = np.zeros(
-                (batch_size, in_channels, up_h, up_w), dtype=x_data.dtype
-            )
-            upsampled[:, :, ::sh, ::sw] = x_data
-
-            pad_h = kh - 1 - ph
-            pad_w = kw - 1 - pw
-            padded = np.pad(
-                upsampled,
-                ((0, 0), (0, 0), (pad_h, pad_h), (pad_w, pad_w)),
-                mode="constant",
-            )
-
-            flipped_weight = np.flip(weight_data, axis=(2, 3))
-            conv_h = padded.shape[2] - kh + 1
-            conv_w = padded.shape[3] - kw + 1
-
-            output = np.zeros(
-                (batch_size, self.out_channels, conv_h, conv_w), dtype=x_data.dtype
-            )
-
-            for b in range(batch_size):
-                for oc in range(self.out_channels):
-                    for ic in range(in_channels):
-                        kernel = flipped_weight[ic, oc]
-                        for i in range(conv_h):
-                            for j in range(conv_w):
-                                patch = padded[b, ic, i : i + kh, j : j + kw]
-                                output[b, oc, i, j] += np.sum(patch * kernel)
-
-            if oph or opw:
-                output = np.pad(
-                    output, ((0, 0), (0, 0), (0, oph), (0, opw)), mode="constant"
-                )
-
-            output = output[:, :, :out_height, :out_width]
-
-        if self.bias is not None:
-            if self.device == "gpu":
-                if isinstance(output, mx.array):
-                    bias_data = (
-                        self.bias.mlx()
-                        if hasattr(self.bias, "mlx")
-                        else mx.array(self.bias.data)
-                    )
-                    output += bias_data.reshape(1, -1, 1, 1)
-                else:
-                    output += np.array(self.bias.data).reshape(1, -1, 1, 1)
-            else:
-                bias_data = (
-                    self.bias.data
-                    if isinstance(self.bias.data, np.ndarray)
-                    else np.array(self.bias.data)
-                )
-                output += bias_data.reshape(1, -1, 1, 1)
-
-        return Tensor(output, requires_grad=x.requires_grad, device=self.device)
+        return ConvTranspose2dFn.apply(
+            x, self.weight, self.bias, self.stride, self.padding, self.output_padding
+        )
 
     def to(self, device: str):
+        device = normalize_device(device)
         self.device = device
         self.weight = self.weight.to(device)
         if self.bias is not None:

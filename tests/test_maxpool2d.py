@@ -298,7 +298,7 @@ class TestMaxPool2d(unittest.TestCase):
         )
 
         # Backward pass
-        my_output.backward()
+        my_output.sum().backward()
         torch_output.sum().backward()
 
         # Check if gradients were computed (backward might not be implemented yet)

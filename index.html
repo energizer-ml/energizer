@@ -1,190 +1,805 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Energizer</title>
-    <style>
-        body {
-            background-color: #ffffff;
-            color: #000000;
-            font-family: monospace; 
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            line-height: 1.6;
-        }
-        h1, h2 {
-            font-weight: normal;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 5px;
-            margin-top: 40px;
-        }
-        a {
-            color: #0000ee;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        a:hover {
-            text-decoration: underline;
-            background-color: #000;
-            color: #fff;
-        }
-        .status-bar {
-            margin-bottom: 20px;
-            font-size: 0.9em;
-        }
-        .badge {
-            border: 1px solid #000;
-            padding: 2px 6px;
-            margin-right: 8px;
-            display: inline-block;
-        }
-        ul {
-            list-style-type: square;
-        }
-        .release-item {
-            margin-bottom: 15px;
-        }
-        .release-body {
-            margin-top: 5px;
-            font-size: 0.9em;
-            color: #333;
-            white-space: pre-wrap;
-        }
-        .toggle-btn {
-            display: inline-block;
-            margin-top: 5px;
-            font-size: 0.9em;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energizer — the Neural Engine, measured</title>
+<meta name="description" content="Energizer is a small PyTorch-like library and measurement harness for finding out what Apple's Neural Engine can actually do for deep-learning training.">
+<link rel="icon" type="image/png" href="assets/energizer-mark.png">
+<meta property="og:image" content="assets/energizer-wordmark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbfbf8; --ink: #14140f; --muted: #66665e; --line: #e6e6df; --soft: #f3f3ee; --card: #ffffff;
+    /* brand: the six stripes of the logo */
+    --s1: #62ba46; --s2: #fdb827; --s3: #f5821f; --s4: #e03a3e; --s5: #963d97; --s6: #009ddc;
+    /* chart entities, validated for CVD separation on this surface */
+    --c-ane: #8a3a8c; --c-mlx: #3a9a2e; --c-mps: #0a7fcf; --c-gpu: #e0700f; --c-cpu: #8c8c82; --c-all: #14140f;
+    --accent: #8a3a8c;
+    --display: "Bricolage Grotesque", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+    --body: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d0d0b; --ink: #f1f1ea; --muted: #98988d; --line: #26261f; --soft: #151511; --card: #121210;
+      --c-ane: #b072b3; --c-mlx: #4fae3f; --c-mps: #3d95de; --c-gpu: #d97521; --c-cpu: #8c8c82; --c-all: #f1f1ea;
+      --accent: #b072b3; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px;
+         line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); transition: border-color .15s; }
+  a:hover { border-bottom-color: var(--ink); }
+  a:focus-visible, button:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
+  code { font-family: var(--mono); font-size: .9em; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  #progress { position: fixed; top: 0; left: 0; height: 4px; width: 100%; z-index: 50; transform-origin: left; transform: scaleX(0);
+    background: linear-gradient(90deg, var(--s1) 0 16.66%, var(--s2) 0 33.33%, var(--s3) 0 50%, var(--s4) 0 66.66%, var(--s5) 0 83.33%, var(--s6) 0 100%); }
+
+  nav { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; font-size: 14.5px; }
+  nav .brand { display: flex; align-items: center; gap: 10px; border: 0; font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+  nav .brand svg { width: 22px; height: 26px; }
+  nav .links { display: flex; gap: 22px; flex-wrap: wrap; }
+  nav .links a { border: 0; color: var(--muted); }
+  nav .links a:hover { color: var(--ink); }
+
+  /* hero */
+  .hero { position: relative; display: grid; grid-template-columns: 1.15fr .85fr; gap: 24px; align-items: center; padding: 56px 0 88px; }
+  .hero::before { content: ""; position: absolute; inset: -40px -200px; z-index: -1; pointer-events: none;
+    background: radial-gradient(420px circle at var(--mx, 70%) var(--my, 40%), color-mix(in srgb, var(--s5) 14%, transparent), transparent 70%),
+                radial-gradient(520px circle at calc(var(--mx, 70%) - 18%) calc(var(--my, 40%) + 16%), color-mix(in srgb, var(--s6) 10%, transparent), transparent 70%); }
+  .kicker { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .kicker i { display: inline-block; width: 38px; height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, var(--s1) 0 16.66%, var(--s2) 0 33.33%, var(--s3) 0 50%, var(--s4) 0 66.66%, var(--s5) 0 83.33%, var(--s6) 0 100%); }
+  h1 { font-family: var(--display); font-weight: 800; font-size: clamp(46px, 7.6vw, 92px); line-height: .96; letter-spacing: -.045em; margin: 22px 0 26px; }
+  .lede { font-size: clamp(18px, 2.1vw, 21px); color: var(--muted); max-width: 33em; margin: 0 0 32px; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 15px; font-weight: 500; }
+  .btn { border: 1.5px solid var(--ink); padding: 11px 18px; border-radius: 999px; transition: transform .15s, background .15s, color .15s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn.solid { background: var(--ink); color: var(--bg); }
+  .pills { margin-top: 26px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; color: var(--muted); background: var(--card); }
+  .bolt-wrap { position: relative; display: flex; justify-content: center; }
+  #bolt { width: min(100%, 400px); height: auto; overflow: visible; cursor: crosshair; filter: drop-shadow(0 18px 30px color-mix(in srgb, var(--s5) 18%, transparent)); }
+  #bolt .band { transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+  #bolt .intro { animation: boltIn .9s cubic-bezier(.2,.9,.2,1) both; animation-delay: calc(var(--i) * 90ms + 150ms); }
+  @keyframes boltIn { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
+  #bolt-tip { position: absolute; right: 0; bottom: 6px; font-size: 13px; color: var(--muted); max-width: 17em; text-align: right; min-height: 3.2em; }
+  #bolt-tip b { color: var(--ink); font-weight: 600; }
+
+  /* sections */
+  section { padding: 84px 0; border-top: 1px solid var(--line); position: relative; }
+  .tag { display: inline-flex; align-items: center; gap: 9px; font-size: 14px; color: var(--muted); font-weight: 500; }
+  .tag::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--dot, var(--s5)); transform: rotate(45deg); }
+  h2 { font-family: var(--display); font-weight: 800; font-size: clamp(30px, 4.4vw, 52px); letter-spacing: -.035em; line-height: 1.04; margin: 14px 0 22px; max-width: 18em; }
+  h3 { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: -.015em; margin: 0 0 6px; }
+  p { margin: 0 0 16px; max-width: 44em; }
+  .muted { color: var(--muted); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; margin-top: 40px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin-top: 36px; }
+  .col { border-top: 3px solid var(--dot, var(--s5)); padding-top: 18px; }
+  .col p { color: var(--muted); font-size: 15.5px; }
+  .note { font-size: 13.5px; color: var(--muted); margin-top: 14px; max-width: 52em; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 40px; gap: 14px; }
+  .stat { padding: 22px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); position: relative; overflow: hidden;
+          transition: transform .25s cubic-bezier(.2,.8,.2,1), border-color .2s; }
+  .stat::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--dot); }
+  .stat:hover { transform: translateY(-4px); border-color: var(--dot); }
+  .num { font-family: var(--display); font-size: clamp(34px, 4.2vw, 54px); font-weight: 800; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat p { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+
+  /* charts */
+  figure.chart { margin: 36px 0 0; padding: 22px 22px 16px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+  figure.chart figcaption { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ctitle { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
+  .csub { font-size: 13.5px; color: var(--muted); }
+  .ctrl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--soft); }
+  .seg button { font: inherit; font-size: 13px; font-weight: 500; color: var(--muted); background: none; border: 0; padding: 5px 12px; border-radius: 999px; cursor: pointer; transition: background .15s, color .15s; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  select { font: inherit; font-size: 13px; background: var(--soft); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
+  .legend { display: flex; gap: 8px 14px; flex-wrap: wrap; margin-top: 12px; }
+  .legend button { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px 4px 9px; cursor: pointer; color: var(--ink); transition: opacity .2s; }
+  .legend button i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+  .legend button[aria-pressed="false"] { opacity: .4; }
+  .plot { width: 100%; position: relative; }
+  .plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .plot text { font-family: var(--body); fill: var(--muted); font-size: 12px; }
+  .plot .lab { fill: var(--ink); font-size: 12.5px; }
+  .plot .lab.w { font-weight: 600; }
+  .plot .grid { stroke: var(--line); stroke-width: 1; }
+  .plot .axis { stroke: var(--muted); stroke-width: 1; opacity: .5; }
+  .plot .hit { fill: transparent; }
+  .plot .a.line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.3s cubic-bezier(.3,.7,.2,1) forwards; animation-delay: var(--d, 0s); }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .plot .a.fade { opacity: 0; animation: fade .5s ease forwards; animation-delay: var(--d, 0s); }
+  @keyframes fade { to { opacity: 1; } }
+  .plot .a.bar { transform-box: fill-box; transform-origin: left center; animation: growx .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d, 0s); }
+  .plot .a.barv { transform-box: fill-box; transform-origin: center bottom; animation: growy .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d, 0s); }
+  @keyframes growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes growy { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  .plot .cell { transition: transform .15s, opacity .15s; transform-box: fill-box; transform-origin: center; }
+  .plot .cell:hover { transform: scale(1.08); }
+  .plot .mark { transition: opacity .15s; }
+  .plot .dim { opacity: .28; }
+  #tip { position: fixed; z-index: 60; pointer-events: none; background: var(--ink); color: var(--bg); padding: 9px 12px; border-radius: 10px;
+         font-size: 13px; line-height: 1.45; opacity: 0; transform: translateY(6px); transition: opacity .12s, transform .12s; max-width: 260px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  #tip.on { opacity: 1; transform: none; }
+  #tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  #tip .r { display: flex; justify-content: space-between; gap: 18px; font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 28px; font-size: 15px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 13px; font-weight: 600; color: var(--muted); }
+  pre { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.7; margin: 24px 0 0; }
+
+  .cmp > div { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px; }
+  .cmp ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 15.5px; }
+  .cmp li { margin: 8px 0; }
+
+  .big { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+  .big .num { color: var(--c-ane); }
+
+  .steps { margin: 28px 0 0; padding: 0; list-style: none; }
+  .steps li { display: grid; grid-template-columns: 22px 1fr 110px; gap: 14px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 15.5px; }
+  .steps .d { width: 14px; height: 14px; border-radius: 4px; background: var(--dot); transition: transform .25s; }
+  .steps li:hover .d { transform: rotate(45deg) scale(1.15); }
+  .steps .s { text-align: right; font-size: 13.5px; color: var(--muted); }
+  .steps .s.done { color: var(--c-mlx); font-weight: 600; }
+
+  details { border-bottom: 1px solid var(--line); padding: 18px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; font-family: var(--display); font-size: 18px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "+"; display: inline-block; width: 22px; color: var(--accent); font-weight: 800; }
+  details[open] summary::before { content: "–"; }
+  details p { margin: 10px 0 0 22px; color: var(--muted); font-size: 16px; }
+
+  #releases-list { list-style: none; padding: 0; margin: 24px 0 0; }
+  .release-item { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .release-body { margin-top: 6px; font-size: 14.5px; color: var(--muted); white-space: pre-wrap; }
+  .toggle-btn { font-size: 13px; cursor: pointer; }
+
+  footer { border-top: 1px solid var(--line); padding: 36px 0 60px; font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .stripe-end { height: 10px; background: linear-gradient(90deg, var(--s1) 0 16.66%, var(--s2) 0 33.33%, var(--s3) 0 50%, var(--s4) 0 66.66%, var(--s5) 0 83.33%, var(--s6) 0 100%); }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding: 28px 0 56px; }
+    .bolt-wrap { order: -1; }
+    #bolt { width: 220px; }
+    #bolt-tip { position: static; text-align: left; }
+    .grid3, .grid2 { grid-template-columns: 1fr; gap: 24px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .steps li { grid-template-columns: 22px 1fr; }
+    .steps .s { grid-column: 2; text-align: left; }
+    section { padding: 60px 0; }
+    figure.chart { padding: 16px 12px 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    .plot .a.line { stroke-dashoffset: 0; } .plot .a.fade { opacity: 1; }
+  }
+</style>
 </head>
 <body>
+<div id="progress"></div>
+<div id="tip" role="status"></div>
+<div class="wrap">
 
-    <h1>energizer</h1>
+  <nav>
+    <a class="brand" href="#top">
+      <svg viewBox="140 80 230 350" aria-hidden="true"><defs><linearGradient id="rb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#62ba46"/><stop offset=".16" stop-color="#62ba46"/><stop offset=".16" stop-color="#fdb827"/><stop offset=".33" stop-color="#fdb827"/><stop offset=".33" stop-color="#f5821f"/><stop offset=".5" stop-color="#f5821f"/><stop offset=".5" stop-color="#e03a3e"/><stop offset=".66" stop-color="#e03a3e"/><stop offset=".66" stop-color="#963d97"/><stop offset=".86" stop-color="#963d97"/><stop offset=".86" stop-color="#009ddc"/><stop offset="1" stop-color="#009ddc"/></linearGradient></defs><polygon points="213,90 316,90 261,213 349,213 203,419 237,281 153,281" fill="url(#rb)"/></svg>
+      energizer
+    </a>
+    <div class="links">
+      <a href="#research">research</a>
+      <a href="#results">results</a>
+      <a href="#power">power</a>
+      <a href="#training">training</a>
+      <a href="#method">method</a>
+      <a href="#status">status</a>
+      <a href="https://github.com/energizer-ml/energizer">github</a>
+    </div>
+  </nav>
 
-    <div class="status-bar">
-        <span class="badge">python: >=3.9</span>
-        <span class="badge" id="version-badge">pypi: v…</span>
-        <span class="badge">build: passing</span>
-        <span class="badge">linter: passing</span>
+  <header class="hero" id="top">
+    <div>
+      <span class="kicker"><i></i>v0.2 &middot; research release</span>
+      <h1>The Neural Engine, measured.</h1>
+      <p class="lede">Energizer is a small PyTorch-like library and measurement harness. It exists to answer one question with data: what can Apple's Neural Engine actually do for deep-learning training?</p>
+      <div class="cta">
+        <a class="btn solid" href="#results">See the results</a>
+        <a class="btn" href="https://github.com/energizer-ml/energizer">Source</a>
+        <a class="btn" href="https://pypi.org/project/energizer/">pip install energizer</a>
+      </div>
+      <div class="pills">
+        <span class="pill" id="version-badge">pypi: v0.2.0</span>
+        <span class="pill">python 3.10&ndash;3.12</span>
+        <span class="pill">apple silicon</span>
+        <span class="pill">MIT</span>
+      </div>
+    </div>
+    <div class="bolt-wrap">
+      <svg id="bolt" viewBox="130 70 260 370" role="img" aria-label="Energizer lightning bolt in six stripes. Move the pointer over it.">
+        <defs>
+          <polygon id="bolt-shape" points="213,90 316,90 261,213 349,213 203,419 237,281 153,281"/>
+          <clipPath id="bolt-clip"><use href="#bolt-shape"/></clipPath>
+        </defs>
+        <g clip-path="url(#bolt-clip)">
+          <g class="intro" style="--i:0"><rect class="band" data-i="0" data-t="Core ML plans it" x="100" y="90"  width="320" height="41" fill="#62ba46"/></g>
+          <g class="intro" style="--i:1"><rect class="band" data-i="1" data-t="Placement is a threshold" x="100" y="131" width="320" height="52" fill="#fdb827"/></g>
+          <g class="intro" style="--i:2"><rect class="band" data-i="2" data-t="fp32 never reaches the ANE" x="100" y="183" width="320" height="54" fill="#f5821f"/></g>
+          <g class="intro" style="--i:3"><rect class="band" data-i="3" data-t="MLX runs on the GPU" x="100" y="237" width="320" height="54" fill="#e03a3e"/></g>
+          <g class="intro" style="--i:4"><rect class="band" data-i="4" data-t="The ANE draws 2.7 W when used" x="100" y="291" width="320" height="77" fill="#963d97"/></g>
+          <g class="intro" style="--i:5"><rect class="band" data-i="5" data-t="Hybrid training does not pay" x="100" y="368" width="320" height="51" fill="#009ddc"/></g>
+        </g>
+        <path class="intro" style="--i:6" d="M310 190 C 306 152 330 119 361 108 C 363 150 342 182 310 190 Z" fill="#62ba46"/>
+      </svg>
+      <div id="bolt-tip"><b>Six stripes, six findings.</b> Move across the bolt.</div>
+    </div>
+  </header>
+
+  <section id="what" style="--dot: var(--s1)">
+    <span class="tag">What it is</span>
+    <h2>One repo, three pieces.</h2>
+    <div class="grid3">
+      <div class="col" style="--dot: var(--s1)">
+        <h3>A framework you can read</h3>
+        <p>Autograd, layers, optimizers and two backends: NumPy on the CPU and MLX on the Apple GPU. Every layer's backward pass runs on-device, checked against PyTorch.</p>
+      </div>
+      <div class="col" style="--dot: var(--s3)">
+        <h3>Measurements, scripted</h3>
+        <p>Per-op placement from Core ML's compute plan, latency with warm-up and repeats, power from <code>powermetrics</code> with idle subtracted. Every number regenerates from raw files.</p>
+      </div>
+      <div class="col" style="--dot: var(--s5)">
+        <h3>Claims with receipts</h3>
+        <p>A claims ledger ties each statement to a script and a result file. Tables and figures are generated, never typed.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="research" style="--dot: var(--s2)">
+    <span class="tag" style="--dot: var(--s2)">The research</span>
+    <h2>The Neural Engine is easy to name and hard to reach.</h2>
+    <p>Most &ldquo;runs on the Neural Engine&rdquo; claims are really GPU or CPU work. MLX and PyTorch&rsquo;s MPS backend execute on the GPU through Metal. The ANE is reachable only through Core ML, which decides placement itself and has no public backward pass.</p>
+    <p>That makes the ANE's role in training an open, measurable question rather than a given. The project's goal is to characterise it honestly: where Core ML places work, what it costs in time and energy, and whether a hybrid &mdash; forward on the ANE, backward and optimizer on the GPU &mdash; can pay for its own overhead.</p>
+    <table>
+      <thead><tr><th>device in energizer</th><th>silicon used</th><th>notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>"cpu"</code></td><td>CPU</td><td>NumPy reference backend</td></tr>
+        <tr><td><code>"mlx"</code></td><td>GPU (Metal)</td><td>Training path. Not the ANE. Formerly <code>"gpu"</code>, kept as a deprecated alias.</td></tr>
+        <tr><td><code>energizer.backpack</code></td><td>CPU / GPU / ANE</td><td>Core ML inference. Placement is Core ML's decision.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="results" style="--dot: var(--s3)">
+    <span class="tag" style="--dot: var(--s3)">Results so far</span>
+    <h2>Placement is a threshold, not a dial.</h2>
+    <p>We swept 72 single-op and block workloads (convolutions, matmuls, a transformer block) over channels, sequence length, batch size and precision, and asked Core ML where each op would run. Hover the map.</p>
+    <div class="stats">
+      <div class="stat" style="--dot: var(--s5)"><div class="num"><span data-count="0">0</span>/72</div><p>fp32 configurations with any op planned on the ANE</p></div>
+      <div class="stat" style="--dot: var(--s1)"><div class="num"><span data-count="50">0</span>/72</div><p>fp16 configurations planned entirely on the ANE</p></div>
+      <div class="stat" style="--dot: var(--s6)"><div class="num">4&ndash;<span data-count="8">0</span>&times;</div><p>MLX-native training step vs the NumPy backend (MLP, CNN, transformer)</p></div>
+      <div class="stat" style="--dot: var(--s4)"><div class="num">~<span data-count="640">0</span>&times;</div><p>slower training for a hybrid that matches fp32 accuracy (weights refreshed every step)</p></div>
     </div>
 
-    <p>A lightweight PyTorch-like deep learning library for Apple's Neural Engine — built on MLX and NumPy.</p>
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">Where Core ML puts the work</div><div class="csub">Share of ops planned on the ANE, fp16, compute units ALL.</div></div>
+        <div class="ctrl">
+          <div class="seg" id="pl-kind"><button aria-pressed="true" data-v="conv">convolution</button><button aria-pressed="false" data-v="tfm">transformer block</button></div>
+          <div class="seg" id="pl-batch"><button aria-pressed="false" data-v="1">batch 1</button><button aria-pressed="true" data-v="8">batch 8</button></div>
+        </div>
+      </figcaption>
+      <div class="plot" id="ch-place"></div>
+      <div class="legend" aria-hidden="true">
+        <span class="pill"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c-ane);margin-right:6px"></i>on the ANE</span>
+        <span class="pill"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--line);margin-right:6px"></i>stays on CPU / GPU</span>
+      </div>
+    </figure>
+    <p class="note">Placement = Core ML's planned device (MLComputePlan). Single machine: M4 Pro, macOS 26.6.2, clean commit, median of repeated runs.</p>
 
-    <h2>author</h2>
-    <p>Florian GRIMA &lt;<a href="mailto:florian.grima@epitech.eu">florian.grima@epitech.eu</a>&gt;<br>
-    GitHub: <a href="https://github.com/fgrimaepitech">@fgrimaepitech</a></p>
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">fp16 matmul latency by framework</div><div class="csub">Batch 1, median ms, log&ndash;log. Hover for exact values; click a name to hide it.</div></div>
+      </figcaption>
+      <div class="plot" id="ch-lat"></div>
+      <div class="legend" id="lg-lat"></div>
+    </figure>
 
-    <h2>dependencies</h2>
-    <ul>
-        <li><code>mlx</code> - Apple's array framework for machine learning</li>
-        <li><code>numpy</code> - The fundamental package for scientific computing</li>
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">Best measured matmul throughput</div><div class="csub">TFLOP/s, n&le;4096, three repeats within 3%. The denominator for achieved-vs-peak.</div></div>
+        <div class="ctrl"><div class="seg" id="pk-prec"><button aria-pressed="true" data-v="fp16">fp16</button><button aria-pressed="false" data-v="fp32">fp32</button></div></div>
+      </figcaption>
+      <div class="plot" id="ch-peak"></div>
+    </figure>
+    <p class="note">Core ML wins at tiny sizes, MLX and MPS at large ones; the ANE reaches within 15% of MLX at n=4096.</p>
+
+    <div class="grid2 cmp">
+      <div>
+        <span class="tag" style="--dot: var(--s3)">What we see</span>
+        <h3 style="margin-top:10px">Small ops stay off the ANE</h3>
+        <ul>
+          <li>Convolutions move to the ANE from about 128 channels (64&times;64 images).</li>
+          <li>A transformer block moves at sequence length 128 (d=512).</li>
+          <li>Below those sizes Core ML prefers the CPU, even though the ANE could run them.</li>
+        </ul>
+      </div>
+      <div>
+        <span class="tag" style="--dot: var(--s4)">What it means for training</span>
+        <h3 style="margin-top:10px">The hybrid does not pay</h3>
+        <ul>
+          <li>Core ML models are immutable: every weight update means convert, compile, load (260&ndash;320&nbsp;ms here).</li>
+          <li>Even ignoring that cost, Core ML forward + backward + transfer did not beat a pure MLX step at widths 256&ndash;1024.</li>
+          <li>Refreshing weights every step reaches the same accuracy as fp32 (92.98% vs 93.00%, MNIST) at ~300&times; the energy; every 5 steps already diverges.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="power" style="--dot: var(--s5)">
+    <span class="tag" style="--dot: var(--s5)">Power</span>
+    <h2>The ANE is where the energy goes down.</h2>
+    <p>With <code>powermetrics</code> sampling CPU, GPU and ANE rails (idle subtracted), the planned placement matches what the silicon does: configurations planned on the ANE draw a median 2.7&nbsp;W on the ANE rail (108 runs), the others 0&nbsp;W (460 runs).</p>
+    <p>For 31 batch-8 fp16 configurations that Core ML can place entirely on the ANE, running them on the GPU instead took a median 1.34&times; longer and 2.82&times; the energy per inference.</p>
+
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">Same model, four compute-unit choices</div><div class="csub">fp16, batch 8, idle-subtracted. Pick a workload.</div></div>
+        <div class="ctrl">
+          <select id="pw-sel" aria-label="Workload"></select>
+          <div class="seg" id="pw-metric"><button aria-pressed="true" data-v="mj">energy</button><button aria-pressed="false" data-v="ms">latency</button></div>
+        </div>
+      </figcaption>
+      <div class="plot" id="ch-power"></div>
+    </figure>
+    <p class="note">The GPU can be faster (transformer rows) but costs several times the energy. <code>compute_units=ALL</code> sometimes splits a block (68&ndash;77% on the ANE) and then lands slower than either pure choice. Includes the host Python process on the CPU rail; same for every row. M4 Pro, 5&nbsp;s sampling windows.</p>
+    <p>Energy to reach the same accuracy (MNIST MLP, 3 epochs, ~93%): NumPy CPU 2.3&nbsp;J, MLX 2.1&nbsp;J, hybrid with ANE forward 737&nbsp;J. The ANE rail contributed 63&nbsp;J of that; 690&nbsp;J was the CPU converting and compiling the Core ML model after every weight update.</p>
+    <p class="note">The ANE is the efficient place to run a fixed forward pass, not a place to train: its energy advantage disappears once the weights change.</p>
+  </section>
+
+  <section id="training" style="--dot: var(--s6)">
+    <span class="tag" style="--dot: var(--s6)">Training</span>
+    <h2>The optimizer was the bottleneck.</h2>
+    <p>Moving the whole step &mdash; forward, backward, loss and optimizer &mdash; onto the GPU through MLX is where the speed comes from, not the ANE.</p>
+
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">Training step, NumPy CPU vs MLX</div><div class="csub">Median ms per step, lower is better.</div></div>
+        <div class="ctrl"><div class="seg" id="tr-opt"><button aria-pressed="true" data-v="adam">Adam</button><button aria-pressed="false" data-v="sgd">SGD</button></div></div>
+      </figcaption>
+      <div class="plot" id="ch-train"></div>
+    </figure>
+
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">Switching each MLX-native part off</div><div class="csub">3-layer MLP, batch 256, Adam. Step time by width, log&ndash;log. Hover the lines.</div></div>
+      </figcaption>
+      <div class="plot" id="ch-abl"></div>
+      <div class="legend" id="lg-abl"></div>
+    </figure>
+    <p class="note">At width 2048 the step takes 7.4&nbsp;ms fully native, 7.7&nbsp;ms with the loss on the host and 23.7&nbsp;ms with gradients copied to the host for the optimizer. Keeping the optimizer on-device matters far more than the loss.</p>
+
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">Hybrid step vs pure MLX</div><div class="csub">ANE forward + transfer + GPU backward/optimizer, against one pure MLX step. 3-layer MLP, batch 256.</div></div>
+        <div class="ctrl"><div class="seg" id="hy-units"><button aria-pressed="true" data-v="CPU_AND_NE">CPU + ANE</button><button aria-pressed="false" data-v="ALL">ALL units</button></div></div>
+      </figcaption>
+      <div class="plot" id="ch-hybrid"></div>
+      <div class="legend" id="lg-hy"></div>
+      <div class="big"><span class="num"><span id="sync-n">0</span> ms</span><span class="muted">to refresh the Core ML weights after one update &mdash; more than 200&times; the whole step above.</span></div>
+    </figure>
+  </section>
+
+  <section id="method" style="--dot: var(--s1)">
+    <span class="tag" style="--dot: var(--s1)">Method</span>
+    <h2>Everything regenerates.</h2>
+    <p>Raw measurements are JSON Lines with the environment embedded: chip, macOS build, library versions, git commit, thermal state. Tables and figures are derived from those files only.</p>
+<pre><code>pip install -e ".[dev,paper]"
+make reproduce          # sweeps, baselines, peak, training, ablation, hybrid, convergence
+sudo -E make power      # adds powermetrics, idle power subtracted
+make tables figures     # paper/tables/*.tex, paper/figures/*.pdf</code></pre>
+    <div class="grid3">
+      <div class="col" style="--dot: var(--s2)"><h3>Warm-up and repeats</h3><p>Median and run-to-run spread, never a single run.</p></div>
+      <div class="col" style="--dot: var(--s4)"><h3>Achieved vs measured peak</h3><p>The denominator is the best throughput we measure, not a datasheet.</p></div>
+      <div class="col" style="--dot: var(--s6)"><h3>Same accuracy first</h3><p>Speed only counts if the accelerated path converges like fp32.</p></div>
+    </div>
+    <p class="note" style="margin-top:26px">We also saw the machine itself change results: two runs made while other work was using the GPU were 3&ndash;4&times; slow. They were archived, and repeated on a quiet machine until three runs agreed.</p>
+  </section>
+
+  <section id="status" style="--dot: var(--s4)">
+    <span class="tag" style="--dot: var(--s4)">Status</span>
+    <h2>Where the work stands.</h2>
+    <ul class="steps">
+      <li style="--dot: var(--s1)"><span class="d"></span><span>Backend claim fixed: <code>"mlx"</code> means GPU, not ANE</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s2)"><span class="d"></span><span>Measurement harness: placement, latency, power</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s3)"><span class="d"></span><span>Characterisation sweeps (576 rows), peak, ablation, convergence</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s4)"><span class="d"></span><span>Baselines: MLX, PyTorch MPS, Core ML</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s5)"><span class="d"></span><span>MLX-native backward for every layer</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s6)"><span class="d"></span><span>Hybrid ANE-forward / GPU-backward: overhead and convergence</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s1)"><span class="d"></span><span>Private APIs: decided not needed yet</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s2)"><span class="d"></span><span>Power sweep (576 rows, idle-subtracted)</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s3)"><span class="d"></span><span>Energy-to-accuracy (MNIST MLP)</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s4)"><span class="d"></span><span>Paper draft, clean-commit re-runs</span><span class="s done">done</span></li>
+      <li style="--dot: var(--s5)"><span class="d"></span><span>Larger models, thermal-state repeats</span><span class="s">next</span></li>
     </ul>
+  </section>
 
-    <h2>releases & changelog</h2>
-    <ul id="releases-list">
-        <li><em>Loading releases from GitHub...</em></li>
-    </ul>
+  <section id="faq" style="--dot: var(--s6)">
+    <span class="tag" style="--dot: var(--s6)">Questions</span>
+    <h2>Fair objections.</h2>
+    <details><summary>Does Energizer train on the Neural Engine?</summary><p>No. Training runs on the CPU (NumPy) or the GPU (MLX). The ANE is used only through Core ML for forward passes, and whether a hybrid is worthwhile is exactly what the project measures.</p></details>
+    <details><summary>Is planned placement the same as real placement?</summary><p>Not necessarily. MLComputePlan reports the planned device; the OS can schedule differently at run time. That is why the harness also samples ANE power with <code>powermetrics</code> to cross-check.</p></details>
+    <details><summary>Why not just use MLX or PyTorch?</summary><p>You should for GPU training. Energizer is a deliberately small codebase where every operation, including its backward pass, can be inspected, instrumented and moved between backends.</p></details>
+    <details><summary>Are private APIs used?</summary><p>No. The decision record in the repository lists what the public path cannot do and when private interfaces would be revisited.</p></details>
+  </section>
 
-    <h2>links</h2>
-    <p>
-        [ <a href="https://github.com/fgrimaepitech/energizer">repository</a> ] 
-        [ <a href="https://pypi.org/project/energizer/">pypi</a> ]
-        [ <a href="https://github.com/fgrimaepitech/energizer/issues">issues</a> ]
-    </p>
+  <section id="releases" style="--dot: var(--s2)">
+    <span class="tag" style="--dot: var(--s2)">Releases</span>
+    <h2>Changelog.</h2>
+    <ul id="releases-list"><li class="muted"><em>Loading releases from GitHub&hellip;</em></li></ul>
+  </section>
 
-    <script>
-        function escapeHTML(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
+  <footer>
+    <span>energizer &middot; Florian GRIMA &middot; MIT</span>
+    <span>
+      <a href="https://github.com/fgrimaepitech/energizer">repository</a> &middot;
+      <a href="https://pypi.org/project/energizer/">pypi</a> &middot;
+      <a href="https://github.com/fgrimaepitech/energizer/issues">issues</a> &middot;
+      <a href="mailto:florian.grima@epitech.eu">contact</a>
+    </span>
+  </footer>
+</div>
+<div class="stripe-end"></div>
 
-        function toggleChangelog(event, btn) {
-            event.preventDefault();
-            const parent = btn.parentElement;
-            const preview = parent.querySelector('.preview');
-            const full = parent.querySelector('.full');
+<script>
+const DATA = {"latency":{"coreml_cpu_ne":{"128":0.047,"256":0.084,"512":0.283,"1024":0.905,"2048":4.104,"4096":27.157},"coreml_cpu_gpu":{"128":0.047,"256":0.084,"512":0.607,"1024":1.232,"2048":6.174,"4096":34.932},"mlx":{"128":0.108,"256":0.17,"512":0.416,"1024":0.505,"2048":3.021,"4096":22.899},"torch_mps":{"128":0.158,"256":0.14,"512":0.213,"1024":0.535,"2048":3.292,"4096":24.846}},"peak":{"coreml_cpu_ne|fp16":5.16,"coreml_cpu_gpu|fp16":3.99,"mlx|fp16":6.01,"torch_mps|fp16":5.52,"coreml_cpu_ne|fp32":3.18,"coreml_cpu_gpu|fp32":4.34,"mlx|fp32":5.36,"torch_mps|fp32":4.84},"conv_grid":[[16,32,1,0],[16,32,8,0],[16,64,1,0],[16,64,8,0],[16,128,1,0],[16,128,8,1.0],[32,32,1,0],[32,32,8,0],[32,64,1,0],[32,64,8,1.0],[32,128,1,0],[32,128,8,1.0],[64,32,1,0],[64,32,8,1.0],[64,64,1,0],[64,64,8,1.0],[64,128,1,1.0],[64,128,8,1.0],[128,32,1,0],[128,32,8,1.0],[128,64,1,1.0],[128,64,8,1.0],[128,128,1,1.0],[128,128,8,1.0],[256,32,1,1.0],[256,32,8,1.0],[256,64,1,1.0],[256,64,8,1.0],[256,128,1,1.0],[256,128,8,1.0],[512,32,1,1.0],[512,32,8,1.0],[512,64,1,1.0],[512,64,8,1.0],[512,128,1,1.0],[512,128,8,1.0]],"tfm_grid":[[16,256,1,1.0],[16,256,8,0],[16,512,1,0],[16,512,8,1.0],[64,256,1,1.0],[64,256,8,1.0],[64,512,1,0],[64,512,8,1.0],[128,256,1,0],[128,256,8,1.0],[128,512,1,1.0],[128,512,8,1.0],[256,256,1,1.0],[256,256,8,1.0],[256,512,1,1.0],[256,512,8,1.0],[512,256,1,1.0],[512,256,8,1.0],[512,512,1,1.0],[512,512,8,0.68],[1024,256,1,1.0],[1024,256,8,0.86],[1024,512,1,1.0],[1024,512,8,0.77]],"power":{"conv_c16_hw32_k3_b8":{"ALL":[0.21,1.0,0.0],"CPU_AND_NE":[0.21,1.1,0.0],"CPU_AND_GPU":[0.21,1.0,0.0],"CPU_ONLY":[0.2,1.0,0.0]},"conv_c16_hw64_k3_b8":{"ALL":[0.4,2.2,0.0],"CPU_AND_NE":[0.44,2.3,0.0],"CPU_AND_GPU":[0.41,2.3,0.0],"CPU_ONLY":[0.45,2.3,0.0]},"conv_c16_hw128_k3_b8":{"ALL":[1.52,8.5,1.08],"CPU_AND_NE":[1.49,8.4,0.43],"CPU_AND_GPU":[1.91,12.8,0.03],"CPU_ONLY":[1.59,8.9,0.0]},"conv_c32_hw32_k3_b8":{"ALL":[0.31,2.2,0.0],"CPU_AND_NE":[0.36,2.0,0.0],"CPU_AND_GPU":[0.31,1.9,0.0],"CPU_ONLY":[0.34,2.0,0.0]},"conv_c32_hw64_k3_b8":{"ALL":[0.8,4.1,0.9],"CPU_AND_NE":[0.77,4.1,1.14],"CPU_AND_GPU":[0.77,4.3,0.0],"CPU_ONLY":[0.84,4.3,0.0]},"conv_c32_hw128_k3_b8":{"ALL":[2.75,15.9,0.77],"CPU_AND_NE":[2.95,18.8,0.93],"CPU_AND_GPU":[3.35,21.6,0.0],"CPU_ONLY":[3.25,17.1,0.0]},"conv_c64_hw32_k3_b8":{"ALL":[0.43,2.3,0.81],"CPU_AND_NE":[0.47,2.4,1.67],"CPU_AND_GPU":[0.47,2.5,0.0],"CPU_ONLY":[0.52,2.4,0.0]},"conv_c64_hw64_k3_b8":{"ALL":[1.48,9.2,1.6],"CPU_AND_NE":[1.46,8.8,1.42],"CPU_AND_GPU":[1.75,20.1,0.0],"CPU_ONLY":[1.85,10.3,0.0]},"conv_c64_hw128_k3_b8":{"ALL":[5.55,32.9,1.0],"CPU_AND_NE":[5.63,33.1,1.37],"CPU_AND_GPU":[6.7,39.5,0.0],"CPU_ONLY":[7.05,37.5,0.0]},"conv_c128_hw32_k3_b8":{"ALL":[0.83,5.4,2.24],"CPU_AND_NE":[0.84,5.9,2.29],"CPU_AND_GPU":[1.16,15.1,0.0],"CPU_ONLY":[1.22,6.5,0.0]},"conv_c128_hw64_k3_b8":{"ALL":[3.09,25.8,2.13],"CPU_AND_NE":[3.17,19.6,1.72],"CPU_AND_GPU":[4.24,30.3,0.0],"CPU_ONLY":[5.0,18.5,0.0]},"conv_c128_hw128_k3_b8":{"ALL":[11.98,78.8,2.02],"CPU_AND_NE":[11.9,76.8,2.03],"CPU_AND_GPU":[15.91,86.7,0.0],"CPU_ONLY":[20.13,77.6,0.0]},"conv_c256_hw32_k3_b8":{"ALL":[1.9,14.8,3.56],"CPU_AND_NE":[1.95,15.2,3.52],"CPU_AND_GPU":[2.66,49.5,0.0],"CPU_ONLY":[2.5,19.7,0.0]},"conv_c256_hw64_k3_b8":{"ALL":[7.2,56.1,3.42],"CPU_AND_NE":[7.09,56.9,3.47],"CPU_AND_GPU":[10.28,97.7,0.0],"CPU_ONLY":[10.11,81.1,0.0]},"conv_c256_hw128_k3_b8":{"ALL":[28.21,215.1,3.5],"CPU_AND_NE":[27.67,208.4,3.48],"CPU_AND_GPU":[41.02,587.2,0.0],"CPU_ONLY":[42.14,310.0,0.0]},"conv_c512_hw32_k3_b8":{"ALL":[4.67,38.9,5.24],"CPU_AND_NE":[4.71,38.2,5.34],"CPU_AND_GPU":[8.21,70.9,0.0],"CPU_ONLY":[7.41,61.8,0.0]},"conv_c512_hw64_k3_b8":{"ALL":[18.06,163.2,5.42],"CPU_AND_NE":[18.2,152.2,5.41],"CPU_AND_GPU":[30.53,642.2,2.22],"CPU_ONLY":[30.71,297.6,0.1]},"conv_c512_hw128_k3_b8":{"ALL":[72.0,733.6,6.29],"CPU_AND_NE":[70.7,606.0,5.47],"CPU_AND_GPU":[120.23,2439.6,0.0],"CPU_ONLY":[131.68,1104.5,0.0]},"matmul_128x128x128_b8":{"ALL":[0.16,0.6,0.0],"CPU_AND_NE":[0.12,0.6,0.0],"CPU_AND_GPU":[0.13,0.6,0.0],"CPU_ONLY":[0.12,0.6,0.0]},"matmul_256x256x256_b8":{"ALL":[0.44,2.4,0.72],"CPU_AND_NE":[0.48,2.4,1.08],"CPU_AND_GPU":[0.39,2.1,0.0],"CPU_ONLY":[0.4,2.5,0.0]},"matmul_512x512x512_b8":{"ALL":[1.78,10.0,1.36],"CPU_AND_NE":[1.54,9.5,1.77],"CPU_AND_GPU":[1.79,21.3,0.0],"CPU_ONLY":[1.75,9.6,0.0]},"matmul_1024x1024x1024_b8":{"ALL":[6.34,41.3,1.96],"CPU_AND_NE":[6.16,41.1,2.09],"CPU_AND_GPU":[8.43,49.9,0.0],"CPU_ONLY":[8.9,33.8,0.52]},"tfm_s16_d256_h4_b8":{"ALL":[0.34,3.5,0.0],"CPU_AND_NE":[0.16,0.8,1.6],"CPU_AND_GPU":[0.33,3.5,0.0],"CPU_ONLY":[0.19,1.0,0.0]},"tfm_s16_d512_h8_b8":{"ALL":[0.24,1.3,3.07],"CPU_AND_NE":[0.24,1.8,3.13],"CPU_AND_GPU":[0.46,7.0,0.0],"CPU_ONLY":[0.42,2.5,0.0]},"tfm_s64_d256_h4_b8":{"ALL":[0.3,2.9,2.71],"CPU_AND_NE":[0.31,1.8,2.73],"CPU_AND_GPU":[0.54,7.9,0.0],"CPU_ONLY":[0.52,3.8,0.0]},"tfm_s64_d512_h8_b8":{"ALL":[0.65,3.8,4.12],"CPU_AND_NE":[0.66,3.8,4.26],"CPU_AND_GPU":[1.18,18.3,0.01],"CPU_ONLY":[1.38,7.6,0.0]},"tfm_s128_d256_h4_b8":{"ALL":[0.57,2.9,2.98],"CPU_AND_NE":[0.56,2.8,3.16],"CPU_AND_GPU":[0.87,13.5,0.01],"CPU_ONLY":[1.05,6.5,0.0]},"tfm_s128_d512_h8_b8":{"ALL":[1.36,8.2,4.05],"CPU_AND_NE":[1.4,7.5,4.04],"CPU_AND_GPU":[2.02,36.1,0.01],"CPU_ONLY":[2.13,18.1,0.0]},"tfm_s256_d256_h4_b8":{"ALL":[1.36,5.9,2.91],"CPU_AND_NE":[1.35,5.9,2.87],"CPU_AND_GPU":[1.5,26.3,0.0],"CPU_ONLY":[1.89,15.3,0.0]},"tfm_s256_d512_h8_b8":{"ALL":[3.15,17.8,3.96],"CPU_AND_NE":[3.14,15.5,3.89],"CPU_AND_GPU":[3.76,76.3,0.0],"CPU_ONLY":[4.04,38.7,0.0]},"tfm_s512_d256_h4_b8":{"ALL":[3.68,13.4,2.75],"CPU_AND_NE":[3.69,13.3,2.75],"CPU_AND_GPU":[2.88,55.9,0.0],"CPU_ONLY":[3.92,36.0,0.0]},"tfm_s512_d512_h8_b8":{"ALL":[9.27,51.2,2.59],"CPU_AND_NE":[8.39,40.3,3.45],"CPU_AND_GPU":[7.59,165.2,0.0],"CPU_ONLY":[9.6,90.8,0.0]},"tfm_s1024_d256_h4_b8":{"ALL":[15.03,53.9,1.92],"CPU_AND_NE":[10.97,32.9,2.56],"CPU_AND_GPU":[6.51,134.0,0.0],"CPU_ONLY":[12.38,97.5,0.0]},"tfm_s1024_d512_h8_b8":{"ALL":[36.89,160.8,1.9],"CPU_AND_NE":[24.1,83.0,3.05],"CPU_AND_GPU":[17.39,322.1,0.0],"CPU_ONLY":[27.27,260.8,0.77]}},"train":{"mlp_1024x3":{"cpu_adam":8.92,"cpu_sgd":4.95,"mlx_adam":1.94,"mlx_sgd":1.15},"mlp_2048x3":{"cpu_adam":40.13,"cpu_sgd":23.06,"mlx_adam":7.54,"mlx_sgd":3.46},"cnn_c32_hw32":{"cpu_adam":35.6,"cpu_sgd":35.2,"mlx_adam":4.59,"mlx_sgd":4.5},"tfm_s64_d256_l2":{"cpu_adam":29.74,"cpu_sgd":27.03,"mlx_adam":7.17,"mlx_sgd":5.59}},"ablation":{"full":{"256":0.55,"512":0.82,"1024":1.94,"2048":7.45,"4096":27.72},"no_native_loss":{"256":0.73,"512":1.0,"1024":2.15,"2048":7.67,"4096":28.16},"no_native_optim":{"256":1.46,"512":1.97,"1024":5.44,"2048":23.69,"4096":136.16},"none":{"256":1.57,"512":2.09,"1024":5.47,"2048":23.91,"4096":132.87},"cpu":{"256":0.93,"512":2.41,"1024":8.49,"2048":39.46,"4096":283.64}},"hybrid":[[256,"ALL",0.358,0.013,0.64,0.847,270],[256,"CPU_AND_NE",0.208,0.008,0.559,0.352,259],[512,"ALL",0.301,0.013,0.4,0.488,299],[512,"CPU_AND_NE",0.285,0.015,0.577,0.465,268],[1024,"ALL",0.685,0.024,0.739,1.066,284],[1024,"CPU_AND_NE",0.487,0.028,0.814,1.115,320]]};
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS = 'http://www.w3.org/2000/svg';
+const cv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-            if (full.style.display === 'none') {
-                full.style.display = 'inline';
-                preview.style.display = 'none';
-                btn.innerText = '[ - show less ]';
-            } else {
-                full.style.display = 'none';
-                preview.style.display = 'inline';
-                btn.innerText = '[ + read more ]';
-            }
-        }
+/* ---------- tooltip ---------- */
+const tip = $('#tip');
+function showTip(html, ev) {
+  tip.innerHTML = html; tip.classList.add('on');
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 16, y = ev.clientY + 16;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 16;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 16;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => tip.classList.remove('on');
 
-        async function fetchReleases() {
-            const repo = "fgrimaepitech/energizer";
-            const url = `https://api.github.com/repos/${repo}/releases`;
-            const list = document.getElementById("releases-list");
+/* ---------- helpers ---------- */
+const fmt = (v, d = 2) => v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(d);
+const logS = (d0, d1, r0, r1) => v => r0 + (Math.log(v) - Math.log(d0)) / (Math.log(d1) - Math.log(d0)) * (r1 - r0);
+const linS = (d0, d1, r0, r1) => v => r0 + (v - d0) / (d1 - d0) * (r1 - r0);
+function mount(id, render) {
+  const host = $('#' + id); let seen = false, animate = true, last = 0;
+  const draw = a => { host.innerHTML = ''; render(host, host.clientWidth || 600, a && !REDUCE); };
+  const redraw = (a = false) => { if (seen) draw(a); };
+  new IntersectionObserver((es, ob) => { if (es[0].isIntersecting) { seen = true; draw(true); ob.disconnect(); } }, { threshold: .25 }).observe(host);
+  let t; new ResizeObserver(() => { const w = host.clientWidth; if (!last) { last = w; return; } if (w === last) return; last = w; clearTimeout(t); t = setTimeout(() => redraw(false), 120); }).observe(host);
+  return redraw;
+}
+function seg(id, onChange) {
+  const el = $('#' + id); let val = $('[aria-pressed="true"]', el).dataset.v;
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('button', el).forEach(x => x.setAttribute('aria-pressed', x === b));
+    val = b.dataset.v; onChange(val);
+  });
+  return () => val;
+}
+const A = (cls, a, d) => a ? ` a ${cls}" style="--d:${d}s` : '';
 
-            try {
-                const response = await fetch(url);
-                const releases = await response.json();
+/* ---------- hero bolt ---------- */
+(() => {
+  const svg = $('#bolt'), bands = $$('.band', svg), tipEl = $('#bolt-tip');
+  const hero = $('.hero');
+  function move(e) {
+    const r = svg.getBoundingClientRect();
+    const px = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2)));
+    bands.forEach((b, i) => { b.style.transform = `translateX(${px * (i - 2.5) * 11}px)`; });
+    const rel = (e.clientY - r.top) / r.height;
+    const y = rel * 370 + 70;
+    const hit = bands.find(b => y >= +b.getAttribute('y') && y < +b.getAttribute('y') + +b.getAttribute('height'));
+    if (hit) tipEl.innerHTML = '<b>' + hit.dataset.t + '</b>';
+  }
+  svg.addEventListener('pointermove', move);
+  svg.addEventListener('pointerleave', () => { bands.forEach(b => b.style.transform = ''); tipEl.innerHTML = '<b>Six stripes, six findings.</b> Move across the bolt.'; });
+  hero.addEventListener('pointermove', e => {
+    const r = hero.getBoundingClientRect();
+    hero.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+    hero.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+  });
+})();
 
-                if (!Array.isArray(releases)) {
-                    console.error("GitHub API Error:", releases.message);
-                    list.innerHTML = `<li><em>GitHub API limit reached. Please try again in an hour.</em></li>`;
-                    return;
-                }
+/* ---------- scroll progress + count up ---------- */
+(() => {
+  const bar = $('#progress');
+  const on = () => { const h = document.documentElement; bar.style.transform = `scaleX(${h.scrollTop / (h.scrollHeight - h.clientHeight || 1)})`; };
+  addEventListener('scroll', on, { passive: true }); on();
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return; io.unobserve(e.target);
+    const el = e.target, to = +el.dataset.count; if (REDUCE || to === 0) { el.textContent = to; return; }
+    const t0 = performance.now();
+    (function step(t) { const k = Math.min(1, (t - t0) / 1100); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); })(t0);
+  }), { threshold: .6 });
+  $$('[data-count]').forEach(el => io.observe(el));
+})();
 
-                list.innerHTML = ""; 
+/* ---------- placement map ---------- */
+(() => {
+  const get = seg('pl-kind', () => redraw(true)), getB = seg('pl-batch', () => redraw(true));
+  const redraw = mount('ch-place', (host, W, anim) => {
+    const kind = get(), batch = +getB();
+    const cells = (kind === 'conv' ? DATA.conv_grid : DATA.tfm_grid).filter(c => c[2] === batch);
+    const rowsKey = [...new Set(cells.map(c => c[0]))].sort((a, b) => a - b);
+    const colsKey = [...new Set(cells.map(c => c[1]))].sort((a, b) => a - b);
+    const rl = kind === 'conv' ? v => v + ' ch' : v => 'seq ' + v, cl = kind === 'conv' ? v => v + '×' + v : v => 'd=' + v;
+    const m = { l: 64, r: 8, t: 8, b: 28 }, cw = Math.min(110, (W - m.l - m.r) / colsKey.length), ch = 40, gap = 4;
+    const H = m.t + rowsKey.length * (ch + gap) + m.b;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ANE placement map">`;
+    colsKey.forEach((c, j) => s += `<text x="${m.l + j * (cw + gap) + cw / 2}" y="${H - 8}" text-anchor="middle">${cl(c)}</text>`);
+    rowsKey.forEach((r, i) => {
+      s += `<text x="${m.l - 10}" y="${m.t + i * (ch + gap) + ch / 2 + 4}" text-anchor="end">${rl(r)}</text>`;
+      colsKey.forEach((c, j) => {
+        const cell = cells.find(x => x[0] === r && x[1] === c); if (!cell) return;
+        const f = cell[3], x = m.l + j * (cw + gap), y = m.t + i * (ch + gap);
+        const fill = f >= .999 ? 'var(--c-ane)' : f > 0 ? 'color-mix(in srgb, var(--c-ane) ' + Math.round(f * 100) + '%, var(--line))' : 'var(--line)';
+        s += `<rect class="cell${A('fade', anim, (i + j) * .06)}" x="${x}" y="${y}" width="${cw}" height="${ch}" rx="7" fill="${fill}" data-r="${r}" data-c="${c}" data-f="${f}"/>`;
+        s += `<text x="${x + cw / 2}" y="${y + ch / 2 + 4}" text-anchor="middle" style="fill:${f >= .5 ? '#fff' : 'var(--muted)'};pointer-events:none">${f >= .999 ? 'ANE' : f > 0 ? Math.round(f * 100) + '%' : 'CPU'}</text>`;
+      });
+    });
+    host.innerHTML = s + '</svg>';
+    $$('.cell', host).forEach(el => {
+      el.addEventListener('pointermove', e => showTip(`<b>${rl(+el.dataset.r)}, ${cl(+el.dataset.c)}</b><br>batch ${batch}, fp16<br>${Math.round(el.dataset.f * 100)}% of ops planned on the ANE`, e));
+      el.addEventListener('pointerleave', hideTip);
+    });
+  });
+})();
 
-                if (releases.length === 0) {
-                    list.innerHTML = "<li>No official releases yet. Check the repository for recent commits.</li>";
-                    return;
-                }
+/* ---------- latency lines ---------- */
+(() => {
+  const S = [
+    { k: 'mlx', n: 'MLX (GPU)', c: '--c-mlx' }, { k: 'torch_mps', n: 'PyTorch MPS (GPU)', c: '--c-mps' },
+    { k: 'coreml_cpu_ne', n: 'Core ML, CPU+ANE', c: '--c-ane' }, { k: 'coreml_cpu_gpu', n: 'Core ML, CPU+GPU', c: '--c-gpu' }];
+  const off = new Set(), lg = $('#lg-lat');
+  lg.innerHTML = S.map(s => `<button aria-pressed="true" data-k="${s.k}" style="--c:var(${s.c})"><i></i>${s.n}</button>`).join('');
+  lg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+    const k = b.dataset.k; off.has(k) ? off.delete(k) : off.add(k); b.setAttribute('aria-pressed', !off.has(k)); redraw(false); });
+  const redraw = mount('ch-lat', (host, W, anim) => {
+    const H = Math.max(260, Math.min(360, W * .5)), m = { l: 52, r: 128, t: 10, b: 34 };
+    const ns = [128, 256, 512, 1024, 2048, 4096];
+    const x = logS(128, 4096, m.l, W - m.r), y = logS(.04, 60, H - m.b, m.t);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="fp16 matmul latency vs size">`;
+    [.05, .1, .5, 1, 5, 10, 50].forEach(t => s += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${y(t)}" y2="${y(t)}"/><text x="${m.l - 8}" y="${y(t) + 4}" text-anchor="end">${t}</text>`);
+    ns.forEach(n => s += `<text x="${x(n)}" y="${H - 10}" text-anchor="middle">${n}</text>`);
+    const live = S.filter(z => !off.has(z.k));
+    live.forEach((z, si) => {
+      const pts = ns.map(n => [x(n), y(DATA.latency[z.k][n])]);
+      const d = 'M' + pts.map(p => p.join(',')).join('L');
+      s += `<path class="line${A('line', anim, si * .12)}" pathLength="1" d="${d}" fill="none" stroke="var(${z.c})" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+      pts.forEach((p, i) => s += `<circle class="mark${A('fade', anim, .9 + si * .1)}" data-k="${z.k}" data-i="${i}" cx="${p[0]}" cy="${p[1]}" r="4" fill="var(${z.c})" stroke="var(--card)" stroke-width="2"/>`);
+    });
+    // direct labels, spread to avoid collisions
+    let ends = live.map(z => ({ z, y: y(DATA.latency[z.k][4096]) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
+    ends.forEach(e => s += `<text class="lab" x="${W - m.r + 12}" y="${e.y + 4}" style="fill:var(${e.z.c});font-weight:600">${e.z.n.split(' (')[0]}</text>`);
+    s += `<line id="xh" class="axis" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" style="opacity:0"/>`;
+    s += `<rect class="hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}"/>`;
+    host.innerHTML = s + '</svg>';
+    const svg = $('svg', host), xh = $('#xh', host);
+    $('.hit', host).addEventListener('pointermove', e => {
+      const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * (W / r.width);
+      let bi = 0, bd = 1e9; ns.forEach((n, i) => { const dd = Math.abs(x(n) - px); if (dd < bd) { bd = dd; bi = i; } });
+      xh.setAttribute('x1', x(ns[bi])); xh.setAttribute('x2', x(ns[bi])); xh.style.opacity = 1;
+      const rows = live.map(z => [z, DATA.latency[z.k][ns[bi]]]).sort((a, b) => a[1] - b[1]);
+      $$('.mark', host).forEach(c => c.classList.toggle('dim', +c.dataset.i !== bi));
+      showTip(`<b>${ns[bi]}&times;${ns[bi]}&times;${ns[bi]}</b>` + rows.map(([z, v], i) =>
+        `<div class="r"><span><i style="background:var(${z.c})"></i>${z.n.split(' (')[0]}</span><span>${fmt(v, 3)} ms${i === 0 ? ' ★' : ''}</span></div>`).join(''), e);
+    });
+    $('.hit', host).addEventListener('pointerleave', () => { hideTip(); xh.style.opacity = 0; $$('.mark', host).forEach(c => c.classList.remove('dim')); });
+  });
+})();
 
-                releases.slice(0, 5).forEach(release => {
-                    const rawDate = release.published_at || release.created_at;
-                    const date = rawDate ? new Date(rawDate).toISOString().split('T')[0] : 'Draft';
-                    
-                    const fullText = escapeHTML((release.body || "No release notes provided.").trim());
-                    const maxLength = 120; 
-                    
-                    let contentHTML = "";
+/* ---------- peak bars ---------- */
+(() => {
+  const get = seg('pk-prec', () => redraw(true));
+  const N = { mlx: ['MLX', '--c-mlx'], torch_mps: ['PyTorch MPS', '--c-mps'], coreml_cpu_ne: ['Core ML, ANE', '--c-ane'], coreml_cpu_gpu: ['Core ML, GPU', '--c-gpu'] };
+  const redraw = mount('ch-peak', (host, W, anim) => {
+    const p = get(), rows = Object.keys(N).map(k => [k, DATA.peak[k + '|' + p]]).sort((a, b) => b[1] - a[1]);
+    const m = { l: 120, r: 70, t: 4, b: 26 }, bh = 34, g = 12, H = m.t + rows.length * (bh + g) + m.b, mx = 7, x = linS(0, mx, m.l, W - m.r);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="peak throughput">`;
+    [0, 2, 4, 6].forEach(t => s += `<line class="grid" x1="${x(t)}" x2="${x(t)}" y1="${m.t}" y2="${H - m.b}"/><text x="${x(t)}" y="${H - 8}" text-anchor="middle">${t}</text>`);
+    rows.forEach(([k, v], i) => {
+      const y = m.t + i * (bh + g);
+      s += `<text class="lab" x="${m.l - 12}" y="${y + bh / 2 + 4}" text-anchor="end">${N[k][0]}</text>`;
+      s += `<rect class="bar${A('bar', anim, i * .1)}" data-k="${k}" x="${m.l}" y="${y}" width="${x(v) - m.l}" height="${bh}" rx="6" fill="var(${N[k][1]})"/>`;
+      s += `<text class="lab w${A('fade', anim, .6 + i * .1)}" x="${x(v) + 8}" y="${y + bh / 2 + 4}">${v.toFixed(2)}</text>`;
+    });
+    host.innerHTML = s + '</svg>';
+    const best = rows[0][1];
+    $$('.bar', host).forEach(el => {
+      el.addEventListener('pointermove', e => { const v = DATA.peak[el.dataset.k + '|' + p];
+        showTip(`<b>${N[el.dataset.k][0]}</b><br>${v.toFixed(2)} TFLOP/s ${p}<br>${Math.round(v / best * 100)}% of the best backend`, e); });
+      el.addEventListener('pointerleave', hideTip);
+    });
+  });
+})();
 
-                    if (fullText.length > maxLength) {
-                        const shortText = fullText.substring(0, maxLength) + "...";
-                        
-                        contentHTML = `<span class="preview">${shortText}</span><span class="full" style="display: none;">${fullText}</span><br><br><a class="toggle-btn" onclick="toggleChangelog(event, this)">[ + read more ]</a>`;
-                    } else {
-                        contentHTML = `<span>${fullText}</span>`;
-                    }
-                    
-                    const item = document.createElement("li");
-                    item.className = "release-item";
-                    
-                    item.innerHTML = `<strong><a href="${release.html_url}" target="_blank">${release.tag_name}</a></strong> — <em>${date}</em><div class="release-body">${contentHTML}</div>`;
-                    
-                    list.appendChild(item);
-                });
-            } catch (error) {
-                console.error("Fetch Error:", error);
-                list.innerHTML = "<li><em>Error loading releases. Check the developer console.</em></li>";
-            }
-        }
+/* ---------- power by compute units ---------- */
+(() => {
+  const sel = $('#pw-sel'), names = Object.keys(DATA.power);
+  const pretty = w => { const c = w.match(/conv_c(\d+)_hw(\d+)/), t = w.match(/tfm_s(\d+)_d(\d+)/), m = w.match(/matmul_(\d+)/);
+    return c ? `conv ${c[1]} ch, ${c[2]}×${c[2]}` : t ? `transformer seq ${t[1]}, d=${t[2]}` : m ? `matmul ${m[1]}³` : w; };
+  sel.innerHTML = names.map(n => `<option value="${n}">${pretty(n)}</option>`).join('');
+  sel.value = 'tfm_s512_d512_h8_b8';
+  sel.addEventListener('change', () => redraw(true));
+  const get = seg('pw-metric', () => redraw(true));
+  const U = [['CPU_AND_NE', 'CPU + ANE', '--c-ane'], ['CPU_AND_GPU', 'CPU + GPU', '--c-gpu'], ['CPU_ONLY', 'CPU only', '--c-cpu'], ['ALL', 'ALL (Core ML chooses)', '--c-all']];
+  const redraw = mount('ch-power', (host, W, anim) => {
+    const w = sel.value, met = get(), idx = met === 'mj' ? 1 : 0, d = DATA.power[w];
+    const rows = U.map(u => [u, d[u[0]][idx], d[u[0]]]), mx = Math.max(...rows.map(r => r[1])) * 1.12;
+    const m = { l: 150, r: 84, t: 4, b: 8 }, bh = 38, g = 12, H = m.t + rows.length * (bh + g) + m.b, x = linS(0, mx, m.l, W - m.r);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="power by compute units">`;
+    rows.forEach(([u, v, full], i) => {
+      const y = m.t + i * (bh + g);
+      s += `<text class="lab" x="${m.l - 12}" y="${y + bh / 2 + 4}" text-anchor="end">${u[1].replace(' (Core ML chooses)', '')}</text>`;
+      s += `<rect class="bar${A('bar', anim, i * .09)}" data-u="${u[0]}" x="${m.l}" y="${y}" width="${Math.max(2, x(v) - m.l)}" height="${bh}" rx="6" fill="var(${u[2]})"/>`;
+      s += `<text class="lab w${A('fade', anim, .5 + i * .09)}" x="${x(v) + 8}" y="${y + bh / 2 + 4}">${fmt(v, 1)} ${met === 'mj' ? 'mJ' : 'ms'}</text>`;
+    });
+    host.innerHTML = s + '</svg>';
+    $$('.bar', host).forEach(el => {
+      el.addEventListener('pointermove', e => { const f = d[el.dataset.u];
+        showTip(`<b>${pretty(w)}</b><br>${f[0].toFixed(1)} ms &middot; ${f[1].toFixed(0)} mJ per run${f[2] != null ? '<br>ANE rail ' + f[2].toFixed(2) + ' W' : ''}`, e); });
+      el.addEventListener('pointerleave', hideTip);
+    });
+  });
+})();
 
-        fetchReleases();
-    </script>
-    <script>
-        fetch('pyproject.toml')
-            .then(r => {
-                if (!r.ok) throw new Error('fetch failed');
-                return r.text();
-            })
-            .then(text => {
-                const m = text.match(/^version\s*=\s*"([^"]+)"/m);
-                if (m) {
-                    document.getElementById('version-badge').textContent = 'pypi: v' + m[1];
-                }
-            })
-            .catch(() => {
-                document.getElementById('version-badge').textContent = 'pypi: v0.1.4.2';
-            });
-    </script>
+/* ---------- training step ---------- */
+(() => {
+  const get = seg('tr-opt', () => redraw(true));
+  const N = { mlp_1024x3: 'MLP 1024', mlp_2048x3: 'MLP 2048', cnn_c32_hw32: 'CNN 32 ch', tfm_s64_d256_l2: 'Transformer' };
+  const redraw = mount('ch-train', (host, W, anim) => {
+    const o = get(), keys = Object.keys(N), H = 300, m = { l: 44, r: 10, t: 22, b: 40 };
+    const mx = 45, y = linS(0, mx, H - m.b, m.t), gw = (W - m.l - m.r) / keys.length, bw = Math.min(54, gw * .3);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="training step latency">`;
+    [0, 10, 20, 30, 40].forEach(t => s += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${y(t)}" y2="${y(t)}"/><text x="${m.l - 8}" y="${y(t) + 4}" text-anchor="end">${t}</text>`);
+    keys.forEach((k, i) => {
+      const cx = m.l + gw * i + gw / 2, c = DATA.train[k]['cpu_' + o], g = DATA.train[k]['mlx_' + o];
+      [[c, cx - bw - 3, '--c-cpu', 'NumPy CPU'], [g, cx + 3, '--c-mlx', 'MLX']].forEach(([v, bx, col, nm], j) => {
+        s += `<rect class="barv${A('barv', anim, i * .1 + j * .08)}" data-n="${nm}" data-k="${k}" data-v="${v}" x="${bx}" y="${y(v)}" width="${bw}" height="${H - m.b - y(v)}" rx="5" fill="var(${col})"/>`;
+        s += `<text class="lab${A('fade', anim, .6 + i * .1)}" x="${bx + bw / 2}" y="${y(v) - 6}" text-anchor="middle">${fmt(v, 1)}</text>`;
+      });
+      s += `<text x="${cx}" y="${H - 18}" text-anchor="middle" class="lab">${N[k]}</text>`;
+      s += `<text x="${cx}" y="${H - 2}" text-anchor="middle" style="fill:var(--c-mlx);font-weight:600">${(c / g).toFixed(1)}× faster</text>`;
+    });
+    s += `<g transform="translate(${m.l},6)"><rect width="10" height="10" rx="3" fill="var(--c-cpu)"/><text x="16" y="9">NumPy CPU</text><rect x="100" width="10" height="10" rx="3" fill="var(--c-mlx)"/><text x="116" y="9">MLX (GPU)</text><text x="${W - m.l - m.r}" y="9" text-anchor="end">ms / step</text></g>`;
+    host.innerHTML = s + '</svg>';
+    $$('.barv', host).forEach(el => {
+      el.addEventListener('pointermove', e => showTip(`<b>${N[el.dataset.k]}</b><br>${el.dataset.n}: ${(+el.dataset.v).toFixed(2)} ms per step`, e));
+      el.addEventListener('pointerleave', hideTip);
+    });
+  });
+})();
+
+/* ---------- ablation lines ---------- */
+(() => {
+  const S = [{ k: 'cpu', n: 'NumPy CPU', c: '--c-cpu' }, { k: 'no_native_optim', n: 'optimizer on host', c: '--c-gpu' },
+    { k: 'no_native_loss', n: 'loss on host', c: '--c-mps' }, { k: 'full', n: 'fully MLX-native', c: '--c-mlx' }];
+  const lg = $('#lg-abl'); lg.innerHTML = S.map(s => `<span class="pill" style="color:var(--ink)"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(${s.c});margin-right:6px"></i>${s.n}</span>`).join('');
+  mount('ch-abl', (host, W, anim) => {
+    const H = Math.max(260, Math.min(340, W * .46)), m = { l: 48, r: 108, t: 10, b: 34 }, ws = [256, 512, 1024, 2048, 4096];
+    const x = logS(256, 4096, m.l, W - m.r), y = logS(.3, 400, H - m.b, m.t);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ablation step time vs width">`;
+    [.5, 1, 5, 10, 50, 100].forEach(t => s += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${y(t)}" y2="${y(t)}"/><text x="${m.l - 8}" y="${y(t) + 4}" text-anchor="end">${t}</text>`);
+    ws.forEach(n => s += `<text x="${x(n)}" y="${H - 10}" text-anchor="middle">${n}</text>`);
+    S.forEach((z, si) => {
+      const pts = ws.map(n => [x(n), y(DATA.ablation[z.k][n])]);
+      s += `<path class="line${A('line', anim, si * .12)}" pathLength="1" d="M${pts.map(p => p.join(',')).join('L')}" fill="none" stroke="var(${z.c})" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+      pts.forEach((p, i) => s += `<circle class="mark${A('fade', anim, .9)}" data-i="${i}" cx="${p[0]}" cy="${p[1]}" r="4" fill="var(${z.c})" stroke="var(--card)" stroke-width="2"/>`);
+    });
+    let ends = S.map(z => ({ z, y: y(DATA.ablation[z.k][4096]) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
+    ends.forEach(e => s += `<text x="${W - m.r + 12}" y="${e.y + 4}" style="fill:var(${e.z.c});font-weight:600">${e.z.n}</text>`);
+    s += `<line id="xh2" class="axis" y1="${m.t}" y2="${H - m.b}" style="opacity:0"/><rect class="hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}"/>`;
+    host.innerHTML = s + '</svg>';
+    const svg = $('svg', host), xh = $('#xh2', host);
+    $('.hit', host).addEventListener('pointermove', e => {
+      const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * (W / r.width);
+      let bi = 0, bd = 1e9; ws.forEach((n, i) => { const dd = Math.abs(x(n) - px); if (dd < bd) { bd = dd; bi = i; } });
+      xh.setAttribute('x1', x(ws[bi])); xh.setAttribute('x2', x(ws[bi])); xh.style.opacity = 1;
+      $$('.mark', host).forEach(c => c.classList.toggle('dim', +c.dataset.i !== bi));
+      const rows = S.map(z => [z, DATA.ablation[z.k][ws[bi]]]).sort((a, b) => a[1] - b[1]);
+      showTip(`<b>width ${ws[bi]}</b>` + rows.map(([z, v]) => `<div class="r"><span><i style="background:var(${z.c})"></i>${z.n}</span><span>${fmt(v, 2)} ms</span></div>`).join(''), e);
+    });
+    $('.hit', host).addEventListener('pointerleave', () => { hideTip(); xh.style.opacity = 0; $$('.mark', host).forEach(c => c.classList.remove('dim')); });
+  });
+})();
+
+/* ---------- hybrid breakdown ---------- */
+(() => {
+  const get = seg('hy-units', () => redraw(true));
+  const lg = $('#lg-hy');
+  lg.innerHTML = [['Core ML forward', '--c-ane'], ['transfer', '--c-cpu'], ['backward + optimizer (MLX)', '--c-mlx']].map(([n, c]) =>
+    `<span class="pill" style="color:var(--ink)"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(${c});margin-right:6px"></i>${n}</span>`).join('');
+  const syncEl = $('#sync-n');
+  const redraw = mount('ch-hybrid', (host, W, anim) => {
+    const u = get(), rows = DATA.hybrid.filter(r => r[1] === u), m = { l: 92, r: 80, t: 4, b: 26 }, bh = 22, g = 6, gg = 18;
+    const H = m.t + rows.length * (2 * bh + g + gg) + m.b, mx = 1.5, x = linS(0, mx, m.l, W - m.r);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="hybrid step breakdown">`;
+    [0, .5, 1, 1.5].forEach(t => s += `<line class="grid" x1="${x(t)}" x2="${x(t)}" y1="${m.t}" y2="${H - m.b}"/><text x="${x(t)}" y="${H - 8}" text-anchor="middle">${t} ms</text>`);
+    rows.forEach((r, i) => {
+      const y = m.t + i * (2 * bh + g + gg), [w, , fwd, xf, bw, pure] = r;
+      s += `<text class="lab" x="${m.l - 12}" y="${y + bh + g / 2 + 4}" text-anchor="end">width ${w}</text>`;
+      let cx = m.l;
+      [[fwd, '--c-ane', 'Core ML forward'], [xf, '--c-cpu', 'transfer'], [bw, '--c-mlx', 'backward + optimizer']].forEach(([v, c, n], j) => {
+        const wpx = Math.max(1.5, x(v) - x(0) - 2);
+        s += `<rect class="bar${A('bar', anim, i * .12 + j * .1)}" data-t="${n}" data-v="${v}" data-w="${w}" x="${cx}" y="${y}" width="${wpx}" height="${bh}" rx="4" fill="var(${c})"/>`; cx += x(v) - x(0);
+      });
+      s += `<text class="lab w${A('fade', anim, .7)}" x="${cx + 6}" y="${y + bh / 2 + 4}">${(fwd + xf + bw).toFixed(2)} ms hybrid</text>`;
+      s += `<rect class="bar${A('bar', anim, i * .12 + .3)}" data-t="pure MLX step" data-v="${pure}" data-w="${w}" x="${m.l}" y="${y + bh + g}" width="${x(pure) - m.l}" height="${bh}" rx="4" fill="none" stroke="var(--c-mlx)" stroke-width="2"/>`;
+      s += `<text class="lab${A('fade', anim, .8)}" x="${x(pure) + 6}" y="${y + bh + g + bh / 2 + 4}">${pure.toFixed(2)} ms pure MLX</text>`;
+    });
+    host.innerHTML = s + '</svg>';
+    syncEl.textContent = Math.round(rows.reduce((a, r) => a + r[6], 0) / rows.length);
+    $$('.bar', host).forEach(el => {
+      el.addEventListener('pointermove', e => showTip(`<b>width ${el.dataset.w}</b><br>${el.dataset.t}: ${(+el.dataset.v).toFixed(3)} ms`, e));
+      el.addEventListener('pointerleave', hideTip);
+    });
+  });
+})();
+
+/* ---------- releases + version ---------- */
+function escapeHTML(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function toggleChangelog(event, btn) {
+  event.preventDefault();
+  const p = btn.parentElement, preview = p.querySelector('.preview'), full = p.querySelector('.full');
+  const open = full.style.display === 'none';
+  full.style.display = open ? 'inline' : 'none';
+  preview.style.display = open ? 'none' : 'inline';
+  btn.innerText = open ? '[ - show less ]' : '[ + read more ]';
+}
+async function fetchReleases() {
+  const list = document.getElementById("releases-list");
+  try {
+    const res = await fetch("https://api.github.com/repos/fgrimaepitech/energizer/releases");
+    const releases = await res.json();
+    if (!Array.isArray(releases)) { list.innerHTML = "<li class='muted'><em>GitHub API limit reached. Try again later.</em></li>"; return; }
+    list.innerHTML = "";
+    if (!releases.length) { list.innerHTML = "<li class='muted'>No official releases yet. See the repository for recent commits.</li>"; return; }
+    releases.slice(0, 5).forEach(r => {
+      const raw = r.published_at || r.created_at;
+      const date = raw ? new Date(raw).toISOString().split('T')[0] : 'Draft';
+      const text = escapeHTML((r.body || "No release notes provided.").trim());
+      const html = text.length > 120
+        ? `<span class="preview">${text.substring(0, 120)}...</span><span class="full" style="display:none">${text}</span><br><a class="toggle-btn" onclick="toggleChangelog(event, this)">[ + read more ]</a>`
+        : `<span>${text}</span>`;
+      const li = document.createElement("li");
+      li.className = "release-item";
+      li.innerHTML = `<strong><a href="${r.html_url}" target="_blank" rel="noopener">${r.tag_name}</a></strong> <span class="muted">${date}</span><div class="release-body">${html}</div>`;
+      list.appendChild(li);
+    });
+  } catch (e) {
+    list.innerHTML = "<li class='muted'><em>Could not load releases.</em></li>";
+  }
+}
+fetchReleases();
+fetch('pyproject.toml').then(r => { if (!r.ok) throw 0; return r.text(); })
+  .then(t => { const m = t.match(/^version\s*=\s*"([^"]+)"/m); if (m) document.getElementById('version-badge').textContent = 'pypi: v' + m[1]; })
+  .catch(() => {});
+</script>
 </body>
 </html>

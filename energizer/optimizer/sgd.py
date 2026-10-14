@@ -56,7 +56,7 @@ class SGD(Optimizer):
                         if not (
                             hasattr(grad, "__class__") and "mlx" in str(type(grad))
                         ):
-                            grad = mx.array(np.array(grad))
+                            grad = mx.array(np.asarray(grad))
                     except ImportError:
                         grad = np.array(grad)
                 else:

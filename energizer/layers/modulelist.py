@@ -1,3 +1,4 @@
+from energizer.backend import normalize_device
 from energizer.neural_network import Module
 
 
@@ -157,11 +158,12 @@ class ModuleList(Module):
         """Move every contained module to *device*.
 
         Args:
-            device (str): ``'cpu'`` or ``'gpu'``.
+            device (str): ``'cpu'`` or ``'mlx'``.
 
         Returns:
             ModuleList: ``self``.
         """
+        device = normalize_device(device)
         for module in self._module_list:
             module.to(device)
         self.device = device

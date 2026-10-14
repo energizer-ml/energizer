@@ -1,3 +1,4 @@
+from energizer.backend import normalize_device
 from energizer.neural_network import Module
 import energizer
 from energizer.tensor import Tensor
@@ -5,6 +6,7 @@ from energizer.tensor import Tensor
 
 class AutoEncoder(Module):
     def __init__(self, device: str = "cpu"):
+        device = normalize_device(device)
         super().__init__()
         self.device = device
         self.encoder = energizer.Sequential(
@@ -78,6 +80,7 @@ class AutoEncoder(Module):
         return self
 
     def to(self, device: str):
+        device = normalize_device(device)
         self.device = device
         self.encoder.to(device)
         self.decoder.to(device)

@@ -1,16 +1,18 @@
 """
-Energizer — A lightweight deep learning library for Apple's Neural Engine.
+Energizer — A lightweight deep learning library for Apple Silicon.
 
 Energizer provides a PyTorch-like API for building, training, and running
-neural networks with first-class support for Apple Silicon via the MLX backend.
+neural networks. Training and eager execution run on the Apple GPU through
+the MLX (Metal) backend; Neural Engine inference goes through Core ML
+(``energizer.backpack``). MLX itself does not use the Neural Engine.
 It can also run on CPU using NumPy as a fallback, making it suitable for
 prototyping and experimentation on any platform.
 
 The library implements automatic differentiation, a modular layer system,
-and GPU-accelerated tensor operations through a familiar interface.
+and MLX/Metal-accelerated tensor operations through a familiar interface.
 
 Core Features:
-    - **Tensor**: Multi-backend tensor with autograd support (CPU via NumPy, GPU via MLX).
+    - **Tensor**: Multi-backend tensor with autograd support (CPU via NumPy, Apple GPU via MLX/Metal).
     - **Module**: Base class for all neural network layers with parameter management,
       serialization (``save``/``load``), device transfer (``to``), and train/eval modes.
     - **Optimizer**: Base optimizer with ``step()``, ``zero_grad()``, and state management.
@@ -20,7 +22,7 @@ Tensor Operations:
     - Arithmetic: ``+``, ``-``, ``*``, ``/``, ``@`` (matmul), ``**`` (power)
     - Reduction: ``sum()``, ``mean()``
     - Shape: ``reshape()``, ``view()``, ``T`` (transpose)
-    - Device: ``cpu()``, ``gpu()``, ``to(device)``
+    - Device: ``cpu()``, ``mlx_device()``, ``to(device)`` with device in ``{'cpu', 'mlx'}``
     - Autograd: ``backward()`` for automatic gradient computation
 
 Functional API (``energizer.functionnal``):
@@ -85,16 +87,16 @@ Example::
         energizer.Linear(128, 10),
     )
 
-    # Move to GPU (Apple Neural Engine via MLX)
-    model.to('gpu')
+    # Move to the Apple GPU (MLX / Metal)
+    model.to('mlx')
 
     # Forward pass
-    x = energizer.Tensor.randn(32, 784, device='gpu')
+    x = energizer.Tensor.randn(32, 784, device='mlx')
     output = model(x)
 
     # Compute loss and backpropagate
     loss_fn = energizer.MSELoss()
-    target = energizer.Tensor.zeros(32, 10, device='gpu')
+    target = energizer.Tensor.zeros(32, 10, device='mlx')
     loss = loss_fn(output, target)
     loss.backward()
 
@@ -104,10 +106,10 @@ Example::
     optimizer.zero_grad()
 """
 
-__version__ = "0.1.8"
+__version__ = "0.2.0"
 __author__ = "Florian GRIMA"
 __name__ = "energizer"
-__description__ = "A lightweight deep learning library for Apple's Neural Engine."
+__description__ = "A lightweight deep learning library for Apple Silicon (MLX/Metal training, Core ML Neural Engine inference)."
 __url__ = "https://github.com/fgrimaepitech/energizer"
 __license__ = "MIT"
 __copyright__ = "Copyright 2026 Florian GRIMA"

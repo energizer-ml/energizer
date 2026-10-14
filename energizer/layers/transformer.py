@@ -1,3 +1,4 @@
+from energizer.backend import normalize_device
 from typing import Callable, Union
 from energizer.neural_network import Module
 from energizer.tensor import Tensor
@@ -15,6 +16,7 @@ class MultiheadAttention(Module):
         bias: bool = True,
         device: str = "cpu",
     ):
+        device = normalize_device(device)
         super().__init__(device=device)
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -30,20 +32,19 @@ class MultiheadAttention(Module):
         self.dropout_layer = energizer.Dropout(dropout)
 
     def _reshape_for_attention(self, x: Tensor) -> Tensor:
-        batch_size, seq_len, embed_dim = x.shape
+        batch_size, seq_len, _ = x.shape
+        x = x.reshape((batch_size, seq_len, self.num_heads, self.head_dim))
+        return x.permute(0, 2, 1, 3)
 
-        if self.device == "gpu":
-            x_reshaped = mx.reshape(
-                x.data, (batch_size, seq_len, self.num_heads, self.head_dim)
-            )
-            x_reshaped = mx.transpose(x_reshaped, (0, 2, 1, 3))
-        else:
-            x_reshaped = x.data.reshape(
-                batch_size, seq_len, self.num_heads, self.head_dim
-            )
-            x_reshaped = x_reshaped.transpose(0, 2, 1, 3)
-
-        return Tensor(x_reshaped, requires_grad=x.requires_grad, device=x.device)
+    def _additive_mask(self, mask: Tensor, like: Tensor, key_padding: bool) -> Tensor:
+        """Boolean masks (True = masked) become additive -inf; float masks pass."""
+        data = mask.data
+        xp = mx if like.device == "mlx" else np
+        if key_padding:
+            data = data[:, None, None, :]
+        if data.dtype == bool or str(data.dtype) == "bool":
+            data = xp.where(data, -float("inf"), 0.0).astype(xp.float32)
+        return Tensor(data, device=like.device)
 
     def _scaled_dot_product_attention(
         self,
@@ -53,49 +54,18 @@ class MultiheadAttention(Module):
         attn_mask: Tensor = None,
         key_padding_mask: Tensor = None,
     ) -> Tensor:
-        if self.device == "gpu":
-            scores = mx.matmul(q.data, mx.transpose(k.data, (0, 1, 3, 2)))
-        else:
-            scores = np.matmul(q.data, k.data.transpose(0, 1, 3, 2))
-
-        scores = scores / (self.head_dim**0.5)
-
+        # Built from differentiable Tensor ops, so autograd (and the MLX path)
+        # needs no hand-written attention backward.
+        scores = (q @ k.permute(0, 1, 3, 2)) * (1.0 / (self.head_dim**0.5))
         if attn_mask is not None:
-            scores = scores + attn_mask.data
-
+            scores = scores + self._additive_mask(attn_mask, scores, False)
         if key_padding_mask is not None:
-            if self.device == "gpu":
-                mask = key_padding_mask.data[:, None, None, :]
-                scores = mx.where(mask, mx.full_like(scores, -float("inf")), scores)
-            else:
-                mask = key_padding_mask.data[:, None, None, :]
-                scores = np.where(mask, -np.inf, scores)
+            scores = scores + self._additive_mask(key_padding_mask, scores, True)
 
-        if self.device == "gpu":
-            attn_weights = mx.softmax(scores, axis=-1)
-            attn_weights = self.dropout_layer(Tensor(attn_weights, device="gpu")).data
-            if not isinstance(attn_weights, mx.array):
-                attn_weights = mx.array(attn_weights)
-        else:
-            exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
-            attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
-            attn_weights = self.dropout_layer(Tensor(attn_weights)).data
-
-        if self.device == "gpu":
-            output = mx.matmul(attn_weights, v.data)
-        else:
-            output = np.matmul(attn_weights, v.data)
-
-        batch_size, num_heads, seq_len, head_dim = output.shape
-
-        if self.device == "gpu":
-            output = mx.transpose(output, (0, 2, 1, 3))
-            output = mx.reshape(output, (batch_size, seq_len, self.embed_dim))
-        else:
-            output = output.transpose(0, 2, 1, 3)
-            output = output.reshape(batch_size, seq_len, self.embed_dim)
-
-        return Tensor(output, requires_grad=q.requires_grad, device=q.device)
+        weights = self.dropout_layer(scores.softmax())
+        out = (weights @ v).permute(0, 2, 1, 3)
+        batch_size, seq_len, _, _ = out.shape
+        return out.reshape((batch_size, seq_len, self.embed_dim))
 
     def forward(
         self,
@@ -105,21 +75,13 @@ class MultiheadAttention(Module):
         attn_mask: Tensor = None,
         key_padding_mask: Tensor = None,
     ) -> Tensor:
-        q = self.q_proj(query)
-        k = self.k_proj(key)
-        v = self.v_proj(value)
-
-        q = self._reshape_for_attention(q)
-        k = self._reshape_for_attention(k)
-        v = self._reshape_for_attention(v)
-
+        q = self._reshape_for_attention(self.q_proj(query))
+        k = self._reshape_for_attention(self.k_proj(key))
+        v = self._reshape_for_attention(self.v_proj(value))
         attn_output = self._scaled_dot_product_attention(
             q, k, v, attn_mask, key_padding_mask
         )
-
-        output = self.out_proj(attn_output)
-
-        return output
+        return self.out_proj(attn_output)
 
 
 class TransformerEncoderLayer(Module):
@@ -136,6 +98,7 @@ class TransformerEncoderLayer(Module):
         bias: bool = True,
         device: str = "cpu",
     ):
+        device = normalize_device(device)
         super().__init__(device=device)
         self.d_model = d_model
         self.nhead = nhead
@@ -211,6 +174,7 @@ class TransformerEncoder(Module):
         norm: Module = None,
         device: str = "cpu",
     ):
+        device = normalize_device(device)
         super().__init__(device=device)
         self.layers = energizer.ModuleList(
             [

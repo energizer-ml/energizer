@@ -1,5 +1,5 @@
 title: "Energizer"
-description: "A lightweight PyTorch-like deep learning library for Apple's Neural Engine — built on MLX and NumPy."
+description: "A lightweight PyTorch-like deep learning library for Apple Silicon: MLX/Metal for training, Core ML for Neural Engine inference."
 
 author:
   name: "Florian GRIMA"

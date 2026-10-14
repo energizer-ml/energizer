@@ -1,3 +1,4 @@
+from energizer.backend import normalize_device
 from energizer import tensor
 from energizer.neural_network import Module, Parameter
 import numpy as np
@@ -6,12 +7,13 @@ from energizer._mlx import mx
 
 class Linear(Module):
     def __init__(self, in_features, out_features, bias=True, device: str = "cpu"):
+        device = normalize_device(device)
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.bias = bias
         self.device = device
-        if device == "gpu":
+        if device == "mlx":
             self.weight = Parameter(
                 mx.random.normal(shape=(out_features, in_features)) * 0.01,
                 requires_grad=True,
@@ -24,7 +26,7 @@ class Linear(Module):
                 device=device,
             )
         if bias:
-            if device == "gpu":
+            if device == "mlx":
                 self.bias = Parameter(
                     mx.zeros(out_features), requires_grad=True, device=device
                 )

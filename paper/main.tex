@@ -1,0 +1,146 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\title{What Can the Apple Neural Engine Do for Deep-Learning Training?\\
+\large A Measurement Study with Energizer}
+\author{Florian Grima}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{abstract}
+The Apple Neural Engine (ANE) is the most power-efficient accelerator on Apple
+silicon, but it is reachable only through Core~ML, which exposes no public
+backward pass. We measure what it can and cannot do for deep-learning
+training, on one Apple M4 Pro, with a reproducible harness and idle-subtracted
+per-rail power. Core ML places no fp32 operator on the ANE; in fp16 it places
+whole models on the ANE only above shape thresholds, and when it does the ANE
+draws about 2.7~W while the GPU path costs 1.3$\times$ the latency and
+2.8$\times$ the energy on the configurations where both are possible. For
+training, the largest gain comes not from the ANE but from running the whole
+step (forward, backward, loss, optimiser) natively on the GPU through MLX:
+4--8$\times$ faster than a NumPy CPU path. A hybrid ANE-forward/GPU-backward
+step never beats pure MLX on small models, because weight refresh requires a
+model recompilation of hundreds of milliseconds.
+\end{abstract}
+
+\section{Introduction}
+Training on Apple silicon is usually discussed as ``GPU or ANE''. In practice the
+ANE cannot be programmed directly, the public stack gives inference only, and
+frameworks that advertise Apple acceleration (MLX, PyTorch MPS) run on the GPU.
+This paper asks three narrow, measurable questions: (i) when does Core~ML place
+work on the ANE, and at what latency and power; (ii) how do Core~ML, MLX and
+PyTorch-MPS compare against measured, not datasheet, peak throughput; (iii)
+what does an ANE-assisted training step cost compared to a pure GPU step.
+Contributions: an open measurement harness with clean-commit provenance; a
+placement/latency/power characterisation of 576 Core~ML configurations; an
+MLX-native training path for Energizer with a per-optimisation ablation; and a
+measured hybrid-training overhead breakdown. All claims are tied to result
+files in \texttt{docs/claims.md}.
+
+\section{Background and Related Work}
+Apple's Neural Engine (ANE) is reachable only through Core~ML~\cite{coreml};
+MLX~\cite{mlx2023} and PyTorch's MPS backend~\cite{paszke2019pytorch} execute on
+the GPU through Metal. Apple documents ANE-oriented transformer design
+choices~\cite{apple2022anetransformers}, and community reverse-engineering
+efforts describe ANE behaviour beyond the public documentation
+\cite{hollance2020neuralengine}.
+% TODO: add reverse-engineering / private-API ANE training work after VERIFY of
+% each source (see refs.bib). State clearly what we did and did not use.
+
+\section{Methodology}
+Hardware: Apple M4 Pro, macOS 26.6.2 (25G83), Python 3.12, MLX 0.30.6,
+coremltools 9.0, PyTorch 2.10. Every result record stores the environment and
+the git commit; runs on a dirty tree are flagged. Latency is the median of
+repeated warmed-up calls, with medians of repeats reported across repeats.
+Placement comes from \texttt{MLComputePlan} (planned, not observed, device).
+Power comes from \texttt{powermetrics} sampling at 100~ms per rail
+(CPU, GPU, ANE); energy is reported net of a measured idle baseline. Machine
+conditions matter: we observed 3--4$\times$ slowdowns on the GPU in two runs
+that shared the machine with other work, and repeated those runs on a quiet
+machine. Only runs that agree across repeats are reported.
+Full procedure: \texttt{docs/REPRODUCE.md}.
+
+\section{Characterisation of ANE Placement, Latency and Power}
+Core~ML places no fp32 operator on the ANE (0 of 72 convolution, 24 matmul and 48
+transformer configurations). In fp16 with \texttt{ALL} compute units, most
+configurations are fully placed on the ANE, and the exceptions follow shape
+thresholds (convolutions below roughly 128 channels at 64$\times$64, sequences
+below roughly 128 at $d=512$ stay off). Planned placement matches observed
+power: configurations planned on the ANE draw a median 2.7~W on the ANE rail,
+those not planned draw 0~W. On 31 batch-8 fp16 configurations that can run on
+both, the GPU path has a median 1.34$\times$ the latency and 2.82$\times$ the energy of
+the ANE path (Table~\ref{tab:power}). \texttt{ALL} sometimes splits a model
+between units and is then slower than a pure choice.
+\input{tables/placement_ane_fraction}
+\input{tables/power_by_units}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/ane_placement.pdf}
+\caption{ANE placement fraction versus problem size.}
+\end{figure}
+
+\section{Baselines and Achieved-vs-Peak Efficiency}
+Table~\ref{tab:peak} gives the best measured square-matmul throughput per
+backend over $n\le4096$ (three repeats, within 3\%). At large $n$ MLX and
+PyTorch-MPS lead in fp16 (about 5.5--6.0~TFLOP/s) and the Core~ML ANE path
+reaches about 5.2~TFLOP/s; Core~ML on the GPU is lowest (about 4~TFLOP/s).
+At small sizes, Core~ML dispatch dominates (Table~\ref{tab:baselines}) and
+MLX/MPS are faster in absolute latency, except on the transformer workload
+where Core~ML with the ANE is fastest.
+\input{tables/measured_peak}
+\input{tables/baselines_latency}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/achieved_vs_peak.pdf}
+\caption{Achieved fraction of measured peak.}
+\end{figure}
+
+\section{Training Paths}
+\paragraph{MLX-native step.} Moving forward, backward, loss and optimiser to MLX
+cuts the Adam step from 8.9 to 1.9~ms (MLP, width 1024), 40 to 7.5~ms
+(width 2048), 35.6 to 4.6~ms (CNN) and 29.7 to 7.2~ms (transformer) relative
+to the NumPy CPU path. The ablation shows the optimiser is the largest single
+factor: keeping only the optimiser on the host raises a width-2048 step from
+7.4 to 23.7~ms; keeping only the loss on the host costs 3\%.
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/train_step.pdf}
+\caption{Training-step latency, CPU versus MLX.}
+\end{figure}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/ablation.pdf}
+\caption{Ablation: step time as each MLX-native component is moved to the host.}
+\end{figure}
+\paragraph{Hybrid.} Core~ML forward takes 0.2--0.7~ms and transfers 0.01--0.03~ms,
+but the backward and optimiser pass on the GPU takes 0.4--0.8~ms and
+refreshing the Core~ML model after a weight update takes 260--320~ms
+(Table~\ref{tab:hybrid}). Hybrid never beats pure MLX at widths 256--1024.
+\input{tables/hybrid_overhead}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/hybrid_breakdown.pdf}
+\caption{Hybrid step breakdown against a pure MLX step.}
+\end{figure}
+\paragraph{Convergence.} On MNIST (MLP, 3 epochs, same seed) CPU, MLX and hybrid
+fp16 with a weight refresh every step reach 93.00\%, 93.02\% and 92.98\%
+(Table~\ref{tab:convergence}); the hybrid path takes about 135~s versus 0.2--0.4~s,
+and most of its energy is on the CPU rail. Refreshing every 5 or 20 steps
+diverged to NaN in our setting; this is a negative result of the
+stale-weight approach, not of the ANE.
+\input{tables/convergence}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/convergence.pdf}
+\caption{Convergence of the three paths on MNIST.}
+\end{figure}
+In the energy breakdown of the refresh-every-step run, the CPU rail accounts for
+690~J and the ANE rail for 63~J of 737~J. A first run of the same experiment
+attributed 0.5~J to the ANE; we have not explained that difference, so we make
+no claim about the ANE share of hybrid energy.
+
+\section{Limitations}
+Single chip and OS build, one machine; Core~ML placement is a planner decision that may differ
+at run time; no public ANE backward pass exists, so the hybrid path pays a full
+recompilation per weight refresh; results are for small models and
+inference-style forward passes; no private APIs were used. Large batch-8 matmuls (n\,$\ge$\,1024) varied by 1.4--5$\times$ between two full sweeps on the same commit, including pure-CPU rows, so we quote medians over many configurations rather than single large-matmul rows. The environment record of the power runs reports battery power although the machine was reportedly plugged in; we report it as recorded.
+
+\bibliographystyle{plain}
+\bibliography{refs}
+\end{document}

@@ -47,7 +47,7 @@ class TestOperators(unittest.TestCase):
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         b = energizer.tensor([4.0, 5.0, 6.0])
         result = a * b
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -61,7 +61,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         result = 2 * a
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -77,7 +77,7 @@ class TestOperators(unittest.TestCase):
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         b = energizer.tensor([4.0, 5.0, 6.0], requires_grad=True)
         result = a + b
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -94,7 +94,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         result = a + 2.0
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -110,7 +110,7 @@ class TestOperators(unittest.TestCase):
         a = energizer.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
         b = energizer.tensor([[5.0, 6.0], [7.0, 8.0]], requires_grad=True)
         result = a + b
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
@@ -130,7 +130,7 @@ class TestOperators(unittest.TestCase):
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         b = energizer.tensor([4.0, 5.0, 6.0], requires_grad=True)
         result = a - b
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -147,7 +147,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         result = a - 2.0
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -163,7 +163,7 @@ class TestOperators(unittest.TestCase):
         a = energizer.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
         b = energizer.tensor([[5.0, 6.0], [7.0, 8.0]], requires_grad=True)
         result = a - b
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
@@ -182,7 +182,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         result = -a
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -197,7 +197,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
         result = -a
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
@@ -212,7 +212,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([-1.0, -2.0, 3.0], requires_grad=True)
         result = -a
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([-1.0, -2.0, 3.0], requires_grad=True)
@@ -233,7 +233,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         result = a * 2.0
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -249,7 +249,7 @@ class TestOperators(unittest.TestCase):
         a = energizer.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
         b = energizer.tensor([[5.0, 6.0], [7.0, 8.0]], requires_grad=True)
         result = a * b
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
@@ -268,7 +268,7 @@ class TestOperators(unittest.TestCase):
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         b = energizer.tensor([4.0, 5.0, 6.0])
         result = a / b
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -282,7 +282,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         result = a / 2.0
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -296,7 +296,7 @@ class TestOperators(unittest.TestCase):
         # energizer
         a = energizer.tensor([1.0, 2.0, 3.0], requires_grad=True)
         result = 2.0 / a
-        result.backward()
+        result.sum().backward()
 
         # PyTorch
         a_torch = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)

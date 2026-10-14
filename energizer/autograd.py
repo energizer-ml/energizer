@@ -9,6 +9,7 @@ Responsibilities:
 """
 
 from __future__ import annotations
+from energizer.backend import normalize_device
 import numpy as np
 from typing import Optional
 from energizer.backend import backend, MLX_AVAILABLE
@@ -100,6 +101,7 @@ class Context:
     """
 
     def __init__(self, device: str):
+        device = normalize_device(device)
         self.device = device
         self._saved = []
         self._cache = {}  # for arbitrary metadata (e.g. kernel size)
@@ -157,18 +159,19 @@ class Tensor:
     """
 
     def __init__(self, data, device: str = "cpu", requires_grad: bool = False):
+        device = normalize_device(device)
         if isinstance(data, Tensor):
             if device == "cpu" and data.device != "cpu":
                 device = data.device
             data = data.data
 
         # Always convert to the correct backend array type for this device.
-        # This handles: plain lists, scalars, np.ndarray on gpu, mx.array on cpu.
+        # This handles: plain lists, scalars, np.ndarray on mlx, mx.array on cpu.
         from energizer.backpack.compiler.tracer import TraceData
 
         if isinstance(data, TraceData):
             pass
-        elif device == "gpu" and MLX_AVAILABLE:
+        elif device == "mlx" and MLX_AVAILABLE:
             import mlx.core as mx_local
 
             if not isinstance(data, mx_local.array):
@@ -292,6 +295,7 @@ class Tensor:
     # ── Device transfer ───────────────────────────────────────────────────────
 
     def to(self, device: str) -> Tensor:
+        device = normalize_device(device)
         if device == self.device:
             return self
         new_data = backend.transfer(self.data, self.device, device)
@@ -311,6 +315,19 @@ class Tensor:
     def __truediv__(self, other):
         return Div.apply(self, _wrap(other, self))
 
+    # Reflected operators: ``2 * t``, ``1.0 - t``, ``1 / t``, ...
+    def __radd__(self, other):
+        return Add.apply(_wrap(other, self), self)
+
+    def __rsub__(self, other):
+        return Sub.apply(_wrap(other, self), self)
+
+    def __rmul__(self, other):
+        return Mul.apply(_wrap(other, self), self)
+
+    def __rtruediv__(self, other):
+        return Div.apply(_wrap(other, self), self)
+
     def __matmul__(self, other):
         return MatMul.apply(self, _wrap(other, self))
 
@@ -323,8 +340,24 @@ class Tensor:
     def sum(self, axis=None):
         return Sum.apply(self) if axis is None else SumAxis.apply(self, axis)
 
-    def mean(self, axis=None):
-        return Mean.apply(self)
+    def mean(self, axis=None, keepdims=False):
+        if axis is None and not keepdims:
+            return Mean.apply(self)
+        return MeanAxis.apply(self, axis, keepdims)
+
+    def permute(self, *axes):
+        """Reorder dimensions, e.g. ``t.permute(0, 2, 1, 3)``."""
+        if len(axes) == 1 and isinstance(axes[0], (tuple, list)):
+            axes = tuple(axes[0])
+        return Permute.apply(self, tuple(axes))
+
+    def transpose(self, dim0=None, dim1=None):
+        """``t.transpose(d0, d1)`` swaps two dims; no args reverses all (``.T``)."""
+        if dim0 is None:
+            return Transpose.apply(self)
+        axes = list(range(len(self.shape)))
+        axes[dim0], axes[dim1] = axes[dim1], axes[dim0]
+        return Permute.apply(self, tuple(axes))
 
     def __repr__(self):
         return f"Tensor({self.data}, device='{self.device}', requires_grad={self.requires_grad})"
@@ -372,14 +405,19 @@ class Tensor:
         return backend.to_numpy(self.data, self.device)
 
     def mlx(self):
-        if self.device == "gpu":
+        if self.device == "mlx":
             return self.data
-        return backend.transfer(self.data, self.device, "gpu")
+        return backend.transfer(self.data, self.device, "mlx")
 
     def cpu(self):
         return self.to("cpu")
 
+    def mlx_device(self):
+        """Move to the MLX (Apple GPU / Metal) backend."""
+        return self.to("mlx")
+
     def gpu(self):
+        """Deprecated alias of :meth:`mlx_device`."""
         return self.to("gpu")
 
     def copy(self):
@@ -392,18 +430,21 @@ class Tensor:
 
     @staticmethod
     def randn(*args, device="cpu", **kwargs):
+        device = normalize_device(device)
         return Tensor(
             backend.randn(*args, device=device), requires_grad=False, device=device
         )
 
     @staticmethod
     def zeros(shape, device="cpu"):
+        device = normalize_device(device)
         return Tensor(
             backend.zeros(shape, device=device), requires_grad=False, device=device
         )
 
     @staticmethod
     def ones(shape, device="cpu"):
+        device = normalize_device(device)
         return Tensor(
             backend.ones(shape, device=device), requires_grad=False, device=device
         )
@@ -487,8 +528,13 @@ class MatMul(Function):
     @staticmethod
     def backward(ctx, grad):
         a, b = ctx.saved_tensors
-        grad_a = backend.matmul(grad, backend.transpose(b, ctx.device), ctx.device)
-        grad_b = backend.matmul(backend.transpose(a, ctx.device), grad, ctx.device)
+        xp = backend.lib(ctx.device)
+
+        def swap(t):  # transpose the matrix dims only, keep batch dims
+            return t.T if len(t.shape) <= 2 else xp.swapaxes(t, -1, -2)
+
+        grad_a = backend.matmul(grad, swap(b), ctx.device)
+        grad_b = backend.matmul(swap(a), grad, ctx.device)
         return grad_a, grad_b
 
 
@@ -564,6 +610,47 @@ class Mean(Function):
         (a,) = ctx.saved_tensors
         n = a.size if hasattr(a, "size") else np.prod(a.shape)
         return (backend.ones(a.shape, ctx.device) * grad / n,)
+
+
+class MeanAxis(Function):
+    @staticmethod
+    def forward(ctx, a, axis, keepdims):
+        ax = tuple(axis) if isinstance(axis, (tuple, list)) else axis
+        ctx.save_for_backward(a.shape, ax, keepdims)
+        return backend.mean(a, axis=ax, keepdims=keepdims, device=ctx.device)
+
+    @staticmethod
+    def backward(ctx, grad):
+        shape, axis, keepdims = ctx.saved_tensors
+        nd = len(shape)
+        if axis is None:
+            axes = tuple(range(nd))
+        elif isinstance(axis, tuple):
+            axes = tuple(a % nd for a in axis)
+        else:
+            axes = (axis % nd,)
+        count = 1
+        for a in axes:
+            count *= shape[a]
+        if not keepdims:
+            for a in sorted(axes):
+                grad = backend.lib(ctx.device).expand_dims(grad, axis=a)
+        return (backend.ones(shape, ctx.device) * grad / count, None, None)
+
+
+class Permute(Function):
+    @staticmethod
+    def forward(ctx, a, axes):
+        ctx.save_for_backward(axes)
+        return backend.lib(ctx.device).transpose(a, axes)
+
+    @staticmethod
+    def backward(ctx, grad):
+        (axes,) = ctx.saved_tensors
+        inverse = [0] * len(axes)
+        for i, a in enumerate(axes):
+            inverse[a] = i
+        return (backend.lib(ctx.device).transpose(grad, tuple(inverse)), None)
 
 
 class Transpose(Function):
@@ -658,7 +745,7 @@ class Minimum(Function):
     @staticmethod
     def forward(ctx, a, b):
         ctx.save_for_backward(a, b)
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
 
             return mx.minimum(a, b)
@@ -678,7 +765,7 @@ class Maximum(Function):
     @staticmethod
     def forward(ctx, a, b):
         ctx.save_for_backward(a, b)
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
 
             return mx.maximum(a, b)
@@ -704,7 +791,7 @@ class GetItem(Function):
     def backward(ctx, grad):
         orig_shape, key = ctx.saved_tensors
         zeros = backend.zeros(orig_shape, ctx.device)
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
             import numpy as np
 
@@ -748,7 +835,7 @@ class GELU(Function):
         ctx.save_for_backward(a)
         import numpy as np
 
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
 
             return (
@@ -772,7 +859,7 @@ class GELU(Function):
         (a,) = ctx.saved_tensors
         import numpy as np
 
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
 
             c1 = mx.array(np.sqrt(2.0 / np.pi))
@@ -812,7 +899,7 @@ class Trace(Function):
     @staticmethod
     def forward(ctx, a):
         ctx.save_for_backward(a.shape)
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
 
             return mx.trace(a)
@@ -827,7 +914,7 @@ class Trace(Function):
 
         grad_out = np.zeros(shape, dtype=np.float32)
         min_dim = min(shape[-2], shape[-1])
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
 
             grad_out = mx.array(grad_out)
@@ -846,7 +933,7 @@ class AsStrided(Function):
         itemsize = a.itemsize if hasattr(a, "itemsize") else 4
         byte_strides = tuple(s * itemsize for s in strides)
 
-        if ctx.device == "gpu":
+        if ctx.device == "mlx":
             import mlx.core as mx
 
             # Simple fallback if mlx as_strided needs special handling
@@ -894,6 +981,7 @@ class AsStrided(Function):
 
 def _unbroadcast_grad(grad, shape, device: str):
     """Sum out broadcasted dimensions so grad matches shape."""
+    device = normalize_device(device)
     grad = backend.array(grad, device)
     g_shape = grad.shape if hasattr(grad, "shape") else ()
     if g_shape == shape:

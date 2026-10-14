@@ -1,9 +1,181 @@
-from energizer.function import Function
+from energizer.backend import normalize_device
+from energizer.autograd import Function
 from energizer.neural_network import Module, Parameter
 from energizer.tensor import Tensor
 import numpy as np
 import energizer.functionnal as F
 from energizer._mlx import mx
+
+# ── Differentiable convolution ───────────────────────────────────────────────
+# One implementation (2-D); 1-D reuses it with a height-1 image.
+#   cpu : NumPy sliding-window einsum, explicit col2im backward
+#   mlx : mx.conv2d, backward through mx.vjp (stays on the Metal device)
+
+
+def _conv2d_np(x, w, stride, padding):
+    from numpy.lib.stride_tricks import sliding_window_view
+
+    sh, sw = stride
+    ph, pw = padding
+    xp = np.pad(x, ((0, 0), (0, 0), (ph, ph), (pw, pw)))
+    kh, kw = w.shape[2:]
+    win = sliding_window_view(xp, (kh, kw), axis=(2, 3))[:, :, ::sh, ::sw]
+    out = np.einsum("bcijkl,ockl->boij", win, w, optimize=True)
+    return out.astype(np.float32), win, xp.shape
+
+
+def _conv2d_mx(x, w, stride, padding):
+    # MLX convolutions are channels-last: NCHW -> NHWC, OIHW -> OHWI.
+    y = mx.conv2d(
+        x.transpose(0, 2, 3, 1),
+        w.transpose(0, 2, 3, 1),
+        stride=tuple(stride),
+        padding=tuple(padding),
+    )
+    return y.transpose(0, 3, 1, 2)
+
+
+def _col2im(gwin, xp_shape, x_shape, stride, padding):
+    """Scatter window gradients (b,c,oh,ow,kh,kw) back onto the image."""
+    sh, sw = stride
+    ph, pw = padding
+    oh, ow, kh, kw = gwin.shape[2:]
+    gxp = np.zeros(xp_shape, dtype=np.float32)
+    for k in range(kh):
+        for l in range(kw):
+            gxp[:, :, k : k + sh * oh : sh, l : l + sw * ow : sw] += gwin[
+                :, :, :, :, k, l
+            ]
+    h, wd = x_shape[2:]
+    return gxp[:, :, ph : ph + h, pw : pw + wd]
+
+
+class _ConvFn(Function):
+    """Shared forward/backward on NCHW tensors; subclasses adapt 1-D shapes."""
+
+    @staticmethod
+    def _run_forward(ctx, x, w, b, stride, padding):
+        ctx.conv = (stride, padding)
+        if ctx.device == "mlx":
+            ctx.save_for_backward(x, w)
+            y = _conv2d_mx(x, w, stride, padding)
+        else:
+            x = np.asarray(x, dtype=np.float32)
+            w = np.asarray(w, dtype=np.float32)
+            y, win, xp_shape = _conv2d_np(x, w, stride, padding)
+            ctx.save_for_backward(win, w)
+            ctx.conv = (stride, padding, xp_shape, x.shape)
+        if b is not None:
+            y = y + b.reshape(1, -1, 1, 1)
+        ctx.has_bias = b is not None
+        return y
+
+    @staticmethod
+    def _run_backward(ctx, g):
+        a, w = ctx.saved_tensors
+        if ctx.device == "mlx":
+            stride, padding = ctx.conv
+            _, (gx, gw) = mx.vjp(
+                lambda x_, w_: _conv2d_mx(x_, w_, stride, padding), [a, w], [g]
+            )
+            gb = g.sum(axis=(0, 2, 3)) if ctx.has_bias else None
+            return gx, gw, gb
+
+        stride, padding, xp_shape, x_shape = ctx.conv
+        win = a
+        g = np.asarray(g, dtype=np.float32)
+        gw = np.einsum("bcijkl,boij->ockl", win, g, optimize=True)
+        gwin = np.einsum("boij,ockl->bcijkl", g, w, optimize=True)
+        gx = _col2im(gwin, xp_shape, x_shape, stride, padding)
+        gb = g.sum(axis=(0, 2, 3)) if ctx.has_bias else None
+        return gx, gw, gb
+
+
+def _convT_mx(x, w, stride, padding, output_padding):
+    # w: (Cin, Cout, kh, kw) -> MLX (Cout, kh, kw, Cin)
+    y = mx.conv_transpose2d(
+        x.transpose(0, 2, 3, 1),
+        w.transpose(1, 2, 3, 0),
+        stride=tuple(stride),
+        padding=tuple(padding),
+        output_padding=tuple(output_padding),
+    )
+    return y.transpose(0, 3, 1, 2)
+
+
+class ConvTranspose2dFn(Function):
+    """Transposed convolution = input-gradient of conv2d with weight (Cin, Cout, kh, kw)."""
+
+    @staticmethod
+    def forward(ctx, x, w, b, stride, padding, output_padding):
+        ctx.conv = (stride, padding, output_padding)
+        ctx.has_bias = b is not None
+        if ctx.device == "mlx":
+            ctx.save_for_backward(x, w)
+            y = _convT_mx(x, w, stride, padding, output_padding)
+        else:
+            x = np.asarray(x, dtype=np.float32)
+            w = np.asarray(w, dtype=np.float32)
+            sh, sw = stride
+            ph, pw = padding
+            kh, kw = w.shape[2:]
+            h, wd = x.shape[2:]
+            ho = (h - 1) * sh - 2 * ph + kh + output_padding[0]
+            wo = (wd - 1) * sw - 2 * pw + kw + output_padding[1]
+            # the conv this inverts sees an (ho, wo) image padded by (ph, pw)
+            xp_shape = (x.shape[0], w.shape[1], ho + 2 * ph, wo + 2 * pw)
+            gwin = np.einsum("boij,ockl->bcijkl", x, w, optimize=True)
+            y = _col2im(
+                gwin, xp_shape, (x.shape[0], w.shape[1], ho, wo), stride, padding
+            )
+            ctx.save_for_backward(x, w)
+        if b is not None:
+            y = y + b.reshape(1, -1, 1, 1)
+        return y
+
+    @staticmethod
+    def backward(ctx, g):
+        x, w = ctx.saved_tensors
+        stride, padding, output_padding = ctx.conv
+        if ctx.device == "mlx":
+            _, (gx, gw) = mx.vjp(
+                lambda x_, w_: _convT_mx(x_, w_, stride, padding, output_padding),
+                [x, w],
+                [g],
+            )
+        else:
+            g = np.asarray(g, dtype=np.float32)
+            # dx is the forward conv of g with the same weight; dw pairs windows of g with x
+            gx, win, _ = _conv2d_np(g, w, stride, padding)
+            gx = gx[:, :, : x.shape[2], : x.shape[3]]
+            gw = np.einsum("bcijkl,boij->ockl", win, x, optimize=True)
+        gb = g.sum(axis=(0, 2, 3)) if ctx.has_bias else None
+        return gx, gw, gb, None, None, None
+
+
+class Conv2dFn(_ConvFn):
+    @staticmethod
+    def forward(ctx, x, w, b, stride, padding):
+        return _ConvFn._run_forward(ctx, x, w, b, stride, padding)
+
+    @staticmethod
+    def backward(ctx, g):
+        gx, gw, gb = _ConvFn._run_backward(ctx, g)
+        return gx, gw, gb, None, None
+
+
+class Conv1dFn(_ConvFn):
+    @staticmethod
+    def forward(ctx, x, w, b, stride, padding):
+        y = _ConvFn._run_forward(
+            ctx, x[:, :, None, :], w[:, :, None, :], b, (1, stride), (0, padding)
+        )
+        return y[:, :, 0, :]
+
+    @staticmethod
+    def backward(ctx, g):
+        gx, gw, gb = _ConvFn._run_backward(ctx, g[:, :, None, :])
+        return gx[:, :, 0, :], gw[:, :, 0, :], gb, None, None
 
 
 class ConvNd(Module):
@@ -22,7 +194,7 @@ class ConvNd(Module):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        if self.device == "gpu":
+        if self.device == "mlx":
             std = mx.sqrt(2.0 / (in_channels * kernel_size))
             self.weight = Parameter(
                 mx.random.normal(shape=(out_channels, in_channels, kernel_size)),
@@ -37,7 +209,7 @@ class ConvNd(Module):
                 device=self.device,
             )
         if bias:
-            if self.device == "gpu":
+            if self.device == "mlx":
                 self.bias = Parameter(
                     mx.zeros(out_channels), requires_grad=True, device=self.device
                 )
@@ -68,75 +240,10 @@ class Conv1d(ConvNd):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding, bias)
 
     def forward(self, input: Tensor) -> Tensor:
-        self._input = input
-        self._input_padded = (
-            self._pad1d(input, self.padding) if self.padding > 0 else input
-        )
-
-        batch_size, in_channels, length = self._input_padded.data.shape
-        out_length = ((length - self.kernel_size) // self.stride) + 1
-
-        x_2d = self._input_padded.data.reshape(-1, length)
-
-        windows = []
-        for i in range(x_2d.shape[0]):
-            row_windows = F.as_strided(
-                Tensor(x_2d[i]),
-                shape=(out_length, self.kernel_size),
-                strides=(self.stride, 1),
-            ).data
-            windows.append(row_windows)
-
-        windows_stacked = np.stack(windows, axis=0)
-
-        windows_reshaped = (
-            windows_stacked.reshape(
-                batch_size, in_channels, out_length, self.kernel_size
-            )
-            .transpose(0, 2, 1, 3)
-            .reshape(batch_size, out_length, -1)
-        )
-
-        weight_reshaped = self.weight.data.reshape(self.out_channels, -1)
-
-        result = np.einsum("bij,oj->bio", windows_reshaped, weight_reshaped)
-        result = result.transpose(0, 2, 1)
-
-        if self.bias is not None:
-            result += self.bias.data.reshape(1, -1, 1)
-
-        return Tensor(
-            result,
-            requires_grad=input.requires_grad,
-        )
-
-    def _pad1d(self, input: Tensor, padding: int) -> Tensor:
-        batch_size, channels, length = input.data.shape
-        padded_length = length + 2 * padding
-        padded_data = np.zeros((batch_size, channels, padded_length))
-        padded_data[:, :, padding : padding + length] = input.data
-        return Tensor(padded_data, requires_grad=input.requires_grad)
-
-    def _unfold1d(
-        self, input: Tensor, kernel_size: int, stride: int, out_length: int
-    ) -> Tensor:
-        batch_size, channels, length = input.data.shape
-        unfolded_data = np.zeros((batch_size, out_length, channels, kernel_size))
-        for b in range(batch_size):
-            for c in range(channels):
-                channel_data = input.data[b, c, :]
-
-                window = F.as_strided(
-                    Tensor(channel_data),
-                    shape=(out_length, kernel_size),
-                    strides=(stride, 1),
-                )
-
-                unfolded_data[b, :, c, :] = window.data
-
-        return Tensor(unfolded_data, requires_grad=input.requires_grad)
+        return Conv1dFn.apply(input, self.weight, self.bias, self.stride, self.padding)
 
     def to(self, device: str):
+        device = normalize_device(device)
         self.weight = self.weight.to(device)
         if self.bias is not None:
             self.bias = self.bias.to(device)
@@ -164,7 +271,7 @@ class Conv2d(Module):
         self.stride = stride if isinstance(stride, tuple) else (stride, stride)
         self.padding = padding if isinstance(padding, tuple) else (padding, padding)
 
-        if self.device == "gpu":
+        if self.device == "mlx":
             std = mx.sqrt(
                 2.0 / (in_channels * self.kernel_size[0] * self.kernel_size[1])
             )
@@ -193,7 +300,7 @@ class Conv2d(Module):
                 device=self.device,
             )
         if bias:
-            if self.device == "gpu":
+            if self.device == "mlx":
                 self.bias = Parameter(
                     mx.zeros(out_channels), requires_grad=True, device=self.device
                 )
@@ -205,90 +312,4 @@ class Conv2d(Module):
             self.bias = None
 
     def forward(self, input: Tensor) -> Tensor:
-        if self.padding != (0, 0):
-            input = self._pad2d(input, self.padding)
-
-        batch_size, in_channels, height, width = input.data.shape
-        kh, kw = self.kernel_size
-        sh, sw = self.stride
-
-        out_height = ((height - kh) // sh) + 1
-        out_width = ((width - kw) // sw) + 1
-
-        windows = self._im2col(input, kh, kw, sh, sw, out_height, out_width)
-
-        if input.device == "gpu":
-            weight_reshaped = input.mlx().__class__(
-                self.weight.data.reshape(self.out_channels, -1)
-            )
-
-            result = mx.zeros((batch_size, out_height * out_width, self.out_channels))
-            for b in range(batch_size):
-                result[b] = windows[b] @ weight_reshaped.T
-            result = result.transpose(0, 2, 1).reshape(
-                batch_size, self.out_channels, out_height, out_width
-            )
-            if self.bias is not None:
-                result += self.bias.data.reshape(1, -1, 1, 1)
-        else:
-            weight_reshaped = self.weight.data.reshape(self.out_channels, -1)
-
-            result = np.zeros((batch_size, out_height * out_width, self.out_channels))
-            for b in range(batch_size):
-                result[b] = windows[b] @ weight_reshaped.T
-
-            result = result.transpose(0, 2, 1).reshape(
-                batch_size, self.out_channels, out_height, out_width
-            )
-
-            if self.bias is not None:
-                result += self.bias.data.reshape(1, -1, 1, 1)
-
-        return Tensor(result, requires_grad=input.requires_grad, device=input.device)
-
-    def _pad2d(self, x: Tensor, padding: tuple) -> Tensor:
-        ph, pw = padding
-        batch_size, channels, height, width = x.data.shape
-        if ph == 0 and pw == 0:
-            return x
-        padded_data = np.zeros((batch_size, channels, height + 2 * ph, width + 2 * pw))
-        padded_data[:, :, ph : ph + height, pw : pw + width] = x.data
-        return Tensor(padded_data, requires_grad=x.requires_grad, device=x.device)
-
-    def _im2col(
-        self,
-        x: Tensor,
-        kh: int,
-        kw: int,
-        sh: int,
-        sw: int,
-        out_height: int,
-        out_width: int,
-    ):
-        batch_size, channels, height, width = x.data.shape
-        if x.device == "gpu":
-            unfolded_data = mx.zeros(
-                (batch_size, out_height * out_width, channels * kh * kw)
-            )
-        else:
-            unfolded_data = np.zeros(
-                (batch_size, out_height * out_width, channels * kh * kw)
-            )
-
-        for b in range(batch_size):
-            col_index = 0
-            for i in range(out_height):
-                for j in range(out_width):
-                    h_start = i * sh
-                    w_start = j * sw
-                    window = x.data[
-                        b, :, h_start : h_start + kh, w_start : w_start + kw
-                    ]
-                    if x.device == "gpu":
-                        window_flat = window.reshape(-1)
-                    else:
-                        window_flat = window.ravel()
-                    unfolded_data[b, col_index] = window_flat
-                    col_index += 1
-
-        return unfolded_data
+        return Conv2dFn.apply(input, self.weight, self.bias, self.stride, self.padding)
