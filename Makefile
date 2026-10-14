@@ -1,5 +1,6 @@
 PY ?= python
 EXP = experiments
+export PYTHONPATH := $(CURDIR)$(if $(PYTHONPATH),:$(PYTHONPATH),)
 
 .PHONY: ablation test smoke sweep power baselines peak train hybrid convergence tables figures reproduce lint
 
