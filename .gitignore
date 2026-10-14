@@ -2,7 +2,6 @@ bin/
 build/
 dist/
 data/
-assets/
 energizer/__pycache__/
 energizer_generator
 energizer_analyzer

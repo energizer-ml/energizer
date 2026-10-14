@@ -147,6 +147,12 @@
   .cmp ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 15.5px; }
   .cmp li { margin: 8px 0; }
 
+  .paper-cta { margin: 36px 0 0; }
+  .paper-cta .btn { display: inline-block; }
+  .cmp p { color: var(--muted); font-size: 15.5px; margin: 8px 0 0; }
+  table.verdict td:last-child, table.verdict th:last-child { white-space: nowrap; }
+  .v { font-size: 13px; font-weight: 600; border-radius: 999px; padding: 2px 11px; border: 1.5px solid currentColor; }
+  .v.yes { color: var(--c-mlx); } .v.no { color: var(--s4); } .v.part { color: var(--c-gpu); }
   .big { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
   .big .num { color: var(--c-ane); }
 
@@ -222,8 +228,10 @@
       <a href="#results">results</a>
       <a href="#power">power</a>
       <a href="#training">training</a>
+      <a href="#conclusion">conclusion</a>
       <a href="#method">method</a>
       <a href="#status">status</a>
+      <a href="assets/energizer-ane-paper.pdf">paper</a>
       <a href="https://github.com/energizer-ml/energizer">github</a>
     </div>
   </nav>
@@ -235,6 +243,7 @@
       <p class="lede">Energizer is a small PyTorch-like library and measurement harness. It exists to answer one question with data: what can Apple's Neural Engine actually do for deep-learning training?</p>
       <div class="cta">
         <a class="btn solid" href="#results">See the results</a>
+        <a class="btn" href="assets/energizer-ane-paper.pdf">Read the paper</a>
         <a class="btn" href="https://github.com/energizer-ml/energizer">Source</a>
         <a class="btn" href="https://pypi.org/project/energizer/">pip install energizer</a>
       </div>
@@ -417,6 +426,37 @@
       <div class="legend" id="lg-hy"></div>
       <div class="big"><span class="num"><span id="sync-n">0</span> ms</span><span class="muted">to refresh the Core ML weights after one update &mdash; more than 200&times; the whole step above.</span></div>
     </figure>
+  </section>
+
+  <section id="conclusion" style="--dot: var(--s4)">
+    <span class="tag" style="--dot: var(--s4)">Conclusion</span>
+    <h2>An efficient inference engine, not a training accelerator.</h2>
+    <p>We started with four expectations about the Neural Engine. Here is what the measurements say.</p>
+    <table class="verdict">
+      <thead><tr><th>We expected</th><th>We measured</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>MLX and PyTorch MPS use the ANE</td><td>They run on the GPU. The ANE is reachable only through Core ML.</td><td><span class="v no">No</span></td></tr>
+        <tr><td>The ANE can run any model</td><td>No fp32 operator is planned on the ANE; in fp16 only above size thresholds.</td><td><span class="v part">Partly</span></td></tr>
+        <tr><td>The ANE is the fastest unit</td><td>5.2 TFLOP/s peak against 6.0 for MLX; fastest only on the transformer workload.</td><td><span class="v part">Partly</span></td></tr>
+        <tr><td>The ANE is more efficient</td><td>Median 2.7&nbsp;W on its rail. The GPU path takes 1.34&times; the latency and 2.82&times; the energy.</td><td><span class="v yes">Yes</span></td></tr>
+        <tr><td>A hybrid step (ANE forward, GPU backward) is cheaper</td><td>Refreshing Core ML weights costs 260&ndash;320&nbsp;ms; never beats pure MLX at widths 256&ndash;1024.</td><td><span class="v no">No</span></td></tr>
+        <tr><td>The hybrid reaches the same accuracy</td><td>Only with a refresh every step (92.98% vs 93.00%) at ~300&times; the energy; every 5 or 20 steps diverged.</td><td><span class="v part">Only at a high cost</span></td></tr>
+      </tbody>
+    </table>
+    <div class="grid2 cmp">
+      <div>
+        <span class="tag" style="--dot: var(--s1)">What it is good for</span>
+        <h3 style="margin-top:10px">Fixed-weight fp16 inference</h3>
+        <p>Large enough operators, weights that do not change, and a power budget that matters. That is where the ANE draws about 2.7&nbsp;W and finishes the work for a fraction of the energy.</p>
+      </div>
+      <div>
+        <span class="tag" style="--dot: var(--s4)">What it is not</span>
+        <h3 style="margin-top:10px">A training accelerator</h3>
+        <p>It has no backward pass, and every weight update forces a model rebuild that costs more than the whole step. The 4&ndash;8&times; training speed-up came from running the whole step natively on the GPU with MLX.</p>
+      </div>
+    </div>
+    <p class="paper-cta"><a class="btn solid" href="assets/energizer-ane-paper.pdf">Read the full paper (PDF)</a></p>
+    <p class="note">What this does not show: larger models, other chips and later OS releases may move the thresholds. A frozen feature extractor feeding a trainable head fits our energy results but was not tested. Private interfaces were not used and might change the answer.</p>
   </section>
 
   <section id="method" style="--dot: var(--s1)">

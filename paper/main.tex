@@ -135,6 +135,39 @@ In the energy breakdown of the refresh-every-step run, the CPU rail accounts for
 attributed 0.5~J to the ANE; we have not explained that difference, so we make
 no claim about the ANE share of hybrid energy.
 
+\section{Conclusion}
+We set out to learn what the ANE can do for deep-learning training. Starting
+expectations were: (i)~that frameworks advertised as Apple-accelerated use the
+ANE; (ii)~that the ANE would be the fastest place to run a model whenever Core~ML
+allows it; (iii)~that placing the forward pass on the ANE and the backward pass
+on the GPU would lower the cost of a training step; and (iv)~that this hybrid
+would reach the same accuracy as fp32 training.
+
+\begin{table}[t]\centering
+\caption{Expectations against measurements on one Apple M4 Pro.}\label{tab:conclusion}
+\begin{tabular}{p{.34\linewidth}p{.56\linewidth}}\toprule
+expected & measured \\\midrule
+MLX and MPS use the ANE & They run on the GPU; the ANE is reachable only through Core~ML. \\
+ANE usable for any model & No fp32 operator is planned on the ANE; in fp16 only above shape thresholds. \\
+ANE is the fastest unit & Peak matmul 5.2 TFLOP/s against 6.0 (MLX); fastest only on the transformer workload. \\
+ANE is more efficient & Confirmed: median 2.7~W on the ANE rail; the GPU path costs 1.34$\times$ latency and 2.82$\times$ energy on 31 configurations. \\
+Hybrid step is cheaper & Refreshing Core~ML weights costs 260--320~ms; never beats pure MLX at widths 256--1024. \\
+Hybrid matches fp32 accuracy & Only with a refresh every step (92.98\% against 93.00\%) at about 300$\times$ the energy; refreshing every 5 or 20 steps diverged. \\
+\bottomrule\end{tabular}\end{table}
+
+\paragraph{Answer.} On this hardware and software stack the ANE is an efficient
+engine for \emph{fixed-weight, fp16 inference of sufficiently large operators},
+not a training accelerator. It cannot execute a backward pass, and every weight
+update forces a model rebuild that dominates the step. The 4--8$\times$
+training speed-up we obtained came from keeping the entire step, including the
+optimiser, native on the GPU with MLX, not from the ANE.
+
+\paragraph{What this does not show.} Larger models, other chips and later OS
+releases may move the placement thresholds and the hybrid's break-even point.
+Uses where weights are frozen, such as a fixed feature extractor feeding a
+trainable head, are consistent with our energy results but were not tested here.
+Whether private interfaces would change the answer is left open; we used none.
+
 \section{Limitations}
 Single chip and OS build, one machine; Core~ML placement is a planner decision that may differ
 at run time; no public ANE backward pass exists, so the hybrid path pays a full
