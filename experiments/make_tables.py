@@ -79,7 +79,8 @@ def baseline_table(merge_all: bool) -> None:
             r["latency"]["median_ms"]
         )
     body = [
-        (k, p, fw, len(v), f"{median(v):.3f}") for (k, p, fw), v in sorted(acc.items())
+        (k, p, fw.replace("_", "\\_"), len(v), f"{median(v):.3f}")
+        for (k, p, fw), v in sorted(acc.items())
     ]
     _tex(
         os.path.join(OUT, "baselines_latency.tex"),
