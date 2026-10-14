@@ -180,21 +180,21 @@
     <div class="stats">
       <div class="stat"><div class="num">0/72</div><p>fp32 configurations with any op planned on the ANE</p></div>
       <div class="stat"><div class="num">50/72</div><p>fp16 configurations planned entirely on the ANE</p></div>
-      <div class="stat"><div class="num">5&ndash;14&times;</div><p>MLX-native training step vs the NumPy backend (MLP, CNN, transformer)</p></div>
+      <div class="stat"><div class="num">4&ndash;8&times;</div><p>MLX-native training step vs the NumPy backend (MLP, CNN, transformer)</p></div>
       <div class="stat"><div class="num">~640&times;</div><p>slower training for a hybrid that matches fp32 accuracy (weights refreshed every step)</p></div>
     </div>
-    <p class="note">Placement = Core ML's planned device (MLComputePlan), compute units ALL. Single machine: M4 Pro, macOS 26.6.2, uncommitted tree, median of repeated runs. Power rows: powermetrics, idle subtracted.</p>
+    <p class="note">Placement = Core ML's planned device (MLComputePlan), compute units ALL. Single machine: M4 Pro, macOS 26.6.2, clean commit, median of repeated runs. Power rows: powermetrics, idle subtracted.</p>
 
     <table>
       <thead><tr><th>fp16 matmul, batch 1 (ms, median)</th><th>128</th><th>512</th><th>1024</th><th>4096</th></tr></thead>
       <tbody>
-        <tr><td>Core ML, CPU+ANE</td><td><strong>0.047</strong></td><td>0.301</td><td>0.919</td><td>27.3</td></tr>
-        <tr><td>Core ML, CPU+GPU</td><td><strong>0.044</strong></td><td>0.608</td><td>1.216</td><td>35.9</td></tr>
-        <tr><td>MLX</td><td>0.108</td><td>0.431</td><td><strong>0.508</strong></td><td><strong>23.5</strong></td></tr>
-        <tr><td>PyTorch MPS</td><td>0.121</td><td><strong>0.172</strong></td><td>0.547</td><td>26.0</td></tr>
+        <tr><td>Core ML, CPU+ANE</td><td><strong>0.047</strong></td><td>0.283</td><td>0.905</td><td>27.2</td></tr>
+        <tr><td>Core ML, CPU+GPU</td><td><strong>0.047</strong></td><td>0.607</td><td>1.232</td><td>34.9</td></tr>
+        <tr><td>MLX</td><td>0.108</td><td>0.416</td><td><strong>0.505</strong></td><td><strong>22.9</strong></td></tr>
+        <tr><td>PyTorch MPS</td><td>0.158</td><td><strong>0.213</strong></td><td>0.535</td><td>24.8</td></tr>
       </tbody>
     </table>
-    <p class="note">Core ML wins at tiny sizes, MLX and MPS at large ones. Best measured fp16 matmul throughput at n&le;4096: Core ML GPU 3.3, MPS 2.9, MLX 2.5, Core ML ANE 1.9 TFLOP/s (still rising at 4096).</p>
+    <p class="note">Core ML wins at tiny sizes, MLX and MPS at large ones. Best measured fp16 matmul throughput at n&le;4096: MLX 6.0, MPS 5.5, Core ML ANE 5.2, Core ML GPU 4.0 TFLOP/s (three repeats, within 3%).</p>
 
     <div class="grid2 cmp">
       <div>
@@ -210,9 +210,9 @@
         <span class="tag">what it means for training</span>
         <h3>The hybrid does not pay</h3>
         <ul>
-          <li>Core ML models are immutable: every weight update means convert, compile, load (260&ndash;350&nbsp;ms here).</li>
+          <li>Core ML models are immutable: every weight update means convert, compile, load (260&ndash;320&nbsp;ms here).</li>
           <li>Even ignoring that cost, Core ML forward + backward + transfer did not beat a pure MLX step at widths 256&ndash;1024.</li>
-          <li>Refreshing weights every step reaches the same accuracy as fp32 (92.98% vs 93.00%, MNIST) at ~500&times; the energy; every 5 steps already diverges.</li>
+          <li>Refreshing weights every step reaches the same accuracy as fp32 (92.98% vs 93.00%, MNIST) at ~300&times; the energy; every 5 steps already diverges.</li>
         </ul>
       </div>
     </div>
@@ -221,26 +221,26 @@
   <section id="power">
     <span class="tag">power</span>
     <h2>The ANE is where the energy goes down.</h2>
-    <p>With <code>powermetrics</code> sampling CPU, GPU and ANE rails (idle subtracted), the planned placement matches what the silicon does: configurations planned on the ANE draw a median 2.7&nbsp;W on the ANE rail (107 runs), the others 0&nbsp;W (34 runs).</p>
-    <p>For 32 batch-8 fp16 configurations that Core ML can place entirely on the ANE, running them on the GPU instead took a median 1.3&times; longer but 2.75&times; the energy per inference.</p>
+    <p>With <code>powermetrics</code> sampling CPU, GPU and ANE rails (idle subtracted), the planned placement matches what the silicon does: configurations planned on the ANE draw a median 2.7&nbsp;W on the ANE rail (108 runs), the others 0&nbsp;W (460 runs).</p>
+    <p>For 31 batch-8 fp16 configurations that Core ML can place entirely on the ANE, running them on the GPU instead took a median 1.34&times; longer and 2.82&times; the energy per inference.</p>
     <table>
       <thead><tr><th>fp16, batch 8 (ms / mJ per run)</th><th>CPU+ANE</th><th>CPU+GPU</th><th>CPU only</th></tr></thead>
       <tbody>
-        <tr><td>matmul 2048&sup3;</td><td>28.7 / 178</td><td>45.7 / 736</td><td>46.7 / 327</td></tr>
-        <tr><td>conv 512ch, 64&times;64</td><td>18.4 / 312</td><td>30.4 / 740</td><td>33.1 / 476</td></tr>
-        <tr><td>transformer seq 512, d=512</td><td>8.4 / 35</td><td>7.7 / 161</td><td>9.3 / 81</td></tr>
-        <tr><td>transformer seq 1024, d=512</td><td>24.1 / 64</td><td>17.4 / 314</td><td>27.5 / 215</td></tr>
+        <tr><td>conv 512ch, 64&times;64</td><td>18.2 / 152</td><td>30.5 / 642</td><td>30.7 / 298</td></tr>
+        <tr><td>transformer seq 512, d=512</td><td>8.4 / 40</td><td>7.6 / 165</td><td>9.6 / 91</td></tr>
+        <tr><td>transformer seq 1024, d=256</td><td>11.0 / 33</td><td>6.5 / 134</td><td>12.4 / 98</td></tr>
+        <tr><td>transformer seq 1024, d=512</td><td>24.1 / 83</td><td>17.4 / 322</td><td>27.3 / 261</td></tr>
       </tbody>
     </table>
     <p class="note">The GPU can be faster (transformer rows) but costs several times the energy. <code>compute_units=ALL</code> sometimes splits a block (68&ndash;77% on the ANE) and then lands slower than either pure choice. Includes the host Python process on the CPU rail; same for every row. M4 Pro, plugged in, 5&nbsp;s sampling windows.</p>
-    <p>Energy to reach the same accuracy (MNIST MLP, 3 epochs, ~93%): NumPy CPU 2.1&nbsp;J, MLX 1.9&nbsp;J, hybrid with ANE forward 972&nbsp;J. The ANE rail contributed 0.5&nbsp;J of that; 947&nbsp;J was the CPU converting and compiling the Core ML model after every weight update.</p>
+    <p>Energy to reach the same accuracy (MNIST MLP, 3 epochs, ~93%): NumPy CPU 2.3&nbsp;J, MLX 2.1&nbsp;J, hybrid with ANE forward 737&nbsp;J. The ANE rail contributed 63&nbsp;J of that; 690&nbsp;J was the CPU converting and compiling the Core ML model after every weight update.</p>
     <p class="note">The ANE is the efficient place to run a fixed forward pass, not a place to train: its energy advantage disappears once the weights change.</p>
   </section>
 
   <section id="ablation">
     <span class="tag">ablation</span>
     <h2>The optimizer was the bottleneck.</h2>
-    <p>Switching each MLX-native component off in turn (3-layer MLP, batch 256, Adam): at width 2048 the step takes 8.1&nbsp;ms fully native, 9.9&nbsp;ms with the loss on the host, and 54&nbsp;ms with gradients copied to the host for the optimizer. Keeping the optimizer on-device matters far more than the loss.</p>
+    <p>Switching each MLX-native component off in turn (3-layer MLP, batch 256, Adam): at width 2048 the step takes 7.4&nbsp;ms fully native, 7.7&nbsp;ms with the loss on the host, and 23.7&nbsp;ms with gradients copied to the host for the optimizer. Keeping the optimizer on-device matters far more than the loss.</p>
   </section>
 
   <section id="method">

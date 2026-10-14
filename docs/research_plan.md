@@ -13,18 +13,19 @@ claims each step supports.
 | 6 | Hybrid prototype: ANE forward, GPU backward + optimizer; measure transfer / recompile overhead | **prototype done** (MLP only); sweep over widths / batch pending | `experiments/run_hybrid.py` |
 | 7 | Private-API decision | **decided: not needed yet**, see record | `docs/private_apis.md` |
 
-### Findings (M4 Pro, macOS 26.6.2, uncommitted tree, medians; re-run on a clean commit before quoting)
+### Findings (M4 Pro, macOS 26.6.2, clean commits (`ead845c`, `c5e222a`, `d2c86f2`), medians; battery/contention caveats below)
 
 - **Placement (576 rows, 0 errors):** fp32 never reaches the ANE (0/72 configs). fp16: 50/72 fully on the ANE, 3 partial, 19 none; the switch is a size threshold (conv ~128 channels at 64x64, transformer block seq 128 at d=512). `CPU_AND_NE` places 57/72 fp16 configs fully.
-- **Baselines (fp16 matmul, batch 1):** Core ML wins at n<=128 (0.04-0.05 ms), PyTorch MPS at 512 (0.17 ms), MLX at 1024 and 4096 (0.51 / 23.5 ms).
-- **Measured peak, fp16, n<=4096:** Core ML GPU 3.33, MPS 2.92, MLX 2.50, Core ML ANE 1.91 TFLOP/s (ANE still rising).
-- **Training step vs NumPy (Adam):** MLP-1024 10.2 -> 2.0 ms, MLP-2048 56 -> 7.7 ms, CNN 64.8 -> 4.7 ms, transformer 38.1 -> 7.5 ms.
-- **Ablation (width 2048):** full 8.1 ms; host loss 9.9 ms; host optimizer 54 ms; NumPy 47 ms.
+- **Baselines (fp16 matmul, batch 1):** Core ML wins at n<=128 (0.04-0.05 ms), PyTorch MPS at 512 (0.17 ms), MLX at 1024 and 4096 (0.51 / 22.9 ms).
+- **Measured peak, fp16, n<=4096:** MLX 6.0, MPS 5.5, Core ML ANE 5.2, Core ML GPU 4.0 TFLOP/s (3 repeats within 3%). An earlier run (00:41 UTC) was 3-4x slow on GPU paths, with something else using the GPU; archived in `results/_archive/contaminated/`.
+- **Training step vs NumPy (Adam):** MLP-1024 8.9 -> 1.9 ms, MLP-2048 40.1 -> 7.5 ms, CNN 35.6 -> 4.6 ms, transformer 29.7 -> 7.2 ms (4-8x).
+- **Ablation (width 2048):** full 7.4 ms; host loss 7.7 ms; host optimizer 23.7 ms; NumPy 39.5 ms.
 - **Hybrid overhead:** Core ML forward 0.21-0.47 ms, transfer 0.01-0.03 ms, GPU backward+SGD 0.57-0.89 ms vs pure MLX 0.45-1.08 ms; weight sync 260-350 ms. No width <=1024 where the hybrid step beats pure MLX even with free sync.
-- **Convergence (MNIST MLP, 3 epochs):** NumPy 93.00%, MLX 93.02%, hybrid fp16 with weight refresh every step 92.98% but 127.6 s vs 0.2 s; refresh every 5 or 20 steps diverges (weights blow up to NaN).
-- **Power (576 rows, `powermetrics`, idle 1.28 W CPU / 0.24 W GPU / 0 W ANE subtracted):** planned-ANE fp16 rows draw median 2.74 W on the ANE rail (107 rows); rows not planned on the ANE draw 0 W (34 rows), so planned placement matches observed ANE activity. For 32 batch-8 fp16 configs fully placed on the ANE, CPU+GPU took median 1.32x the latency and 2.75x the energy per inference. `ALL` sometimes splits a block (68-77% ANE) and is then slower than either pure choice.
-- **Energy-to-accuracy (MNIST MLP, 3 epochs, ~93%):** NumPy 2.06 J / 0.4 s, MLX 1.85 J / 0.24 s, hybrid fp16 (refresh every step) 972 J / 128.5 s (CPU rail 947 J, GPU 24 J, ANE 0.5 J). MLX uses ~10% less energy than NumPy here although 1.7x faster; the hybrid spends its energy recompiling on the CPU.
-- **Pending:** larger models, repeats across thermal states, clean-commit re-run (all result files say `git_dirty: true`).
+- **Convergence (MNIST MLP, 3 epochs):** NumPy 93.00%, MLX 93.02%, hybrid fp16 with weight refresh every step 92.98% but 135 s vs 0.2 s; refresh every 5 or 20 steps diverges (weights blow up to NaN).
+- **Power (576 rows, `powermetrics`, idle 1.28 W CPU / 0.24 W GPU / 0 W ANE subtracted):** planned-ANE fp16 rows draw median 2.72 W on the ANE rail (108 rows); rows not planned on the ANE draw 0 W (460 rows), so planned placement matches observed ANE activity. For 31 batch-8 fp16 configs fully placed on the ANE, CPU+GPU took median 1.34x the latency and 2.82x the energy per inference. `ALL` sometimes splits a block (68-77% ANE) and is then slower than either pure choice.
+- **Energy-to-accuracy (MNIST MLP, 3 epochs, ~93%):** NumPy 2.3 J / 0.4 s, MLX 2.1 J / 0.24 s, hybrid fp16 (refresh every step) 737 J / 135 s (CPU rail 690 J, ANE 63 J, GPU 0). The hybrid spends its energy recompiling on the CPU.
+- **Caveats:** the power sweep and one convergence run report `Battery Power` in their env record although the machine was reportedly on AC. Large batch-8 matmuls (n>=1024) vary 1.4-5x between the two full sweeps (also fp32 CPU_ONLY), so quote medians over many configs, not single large-matmul rows.
+- **Pending:** larger models, repeats across thermal states.
 
 ### Bugs found and fixed while doing step 5
 
