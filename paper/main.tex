@@ -70,8 +70,8 @@ thresholds (convolutions below roughly 128 channels at 64$\times$64, sequences
 below roughly 128 at $d=512$ stay off). Planned placement matches observed
 power: configurations planned on the ANE draw a median 2.7~W on the ANE rail,
 those not planned draw 0~W. On 31 batch-8 fp16 configurations that can run on
-both, the GPU path has 1.3$\times$ the latency and 2.8$\times$ the energy of the
-ANE path (Table~\ref{tab:power}). \texttt{ALL} sometimes splits a model
+both, the GPU path has a median 1.34$\times$ the latency and 2.82$\times$ the energy of
+the ANE path (Table~\ref{tab:power}). \texttt{ALL} sometimes splits a model
 between units and is then slower than a pure choice.
 \input{tables/placement_ane_fraction}
 \input{tables/power_by_units}
@@ -106,11 +106,19 @@ factor: keeping only the optimiser on the host raises a width-2048 step from
 \includegraphics[width=.8\linewidth]{figures/train_step.pdf}
 \caption{Training-step latency, CPU versus MLX.}
 \end{figure}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/ablation.pdf}
+\caption{Ablation: step time as each MLX-native component is moved to the host.}
+\end{figure}
 \paragraph{Hybrid.} Core~ML forward takes 0.2--0.7~ms and transfers 0.01--0.03~ms,
 but the backward and optimiser pass on the GPU takes 0.4--0.8~ms and
 refreshing the Core~ML model after a weight update takes 260--320~ms
 (Table~\ref{tab:hybrid}). Hybrid never beats pure MLX at widths 256--1024.
 \input{tables/hybrid_overhead}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/hybrid_breakdown.pdf}
+\caption{Hybrid step breakdown against a pure MLX step.}
+\end{figure}
 \paragraph{Convergence.} On MNIST (MLP, 3 epochs, same seed) CPU, MLX and hybrid
 fp16 with a weight refresh every step reach 93.00\%, 93.02\% and 92.98\%
 (Table~\ref{tab:convergence}); the hybrid path takes about 135~s versus 0.2--0.4~s,
@@ -118,12 +126,20 @@ and most of its energy is on the CPU rail. Refreshing every 5 or 20 steps
 diverged to NaN in our setting; this is a negative result of the
 stale-weight approach, not of the ANE.
 \input{tables/convergence}
+\begin{figure}[t]\centering
+\includegraphics[width=.8\linewidth]{figures/convergence.pdf}
+\caption{Convergence of the three paths on MNIST.}
+\end{figure}
+In the energy breakdown of the refresh-every-step run, the CPU rail accounts for
+690~J and the ANE rail for 63~J of 737~J. A first run of the same experiment
+attributed 0.5~J to the ANE; we have not explained that difference, so we make
+no claim about the ANE share of hybrid energy.
 
 \section{Limitations}
-Single chip and OS build; Core~ML placement is a planner decision that may differ
+Single chip and OS build, one machine; Core~ML placement is a planner decision that may differ
 at run time; no public ANE backward pass exists, so the hybrid path pays a full
 recompilation per weight refresh; results are for small models and
-inference-style forward passes; no private APIs were used.
+inference-style forward passes; no private APIs were used. Large batch-8 matmuls (n\,$\ge$\,1024) varied by 1.4--5$\times$ between two full sweeps on the same commit, including pure-CPU rows, so we quote medians over many configurations rather than single large-matmul rows. The environment record of the power runs reports battery power although the machine was reportedly plugged in; we report it as recorded.
 
 \bibliographystyle{plain}
 \bibliography{refs}
