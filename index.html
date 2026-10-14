@@ -50,9 +50,10 @@
 
   /* hero */
   .hero { position: relative; display: grid; grid-template-columns: 1.15fr .85fr; gap: 24px; align-items: center; padding: 56px 0 88px; }
-  .hero::before { content: ""; position: absolute; inset: -40px -200px; z-index: -1; pointer-events: none;
-    background: radial-gradient(420px circle at var(--mx, 70%) var(--my, 40%), color-mix(in srgb, var(--s5) 14%, transparent), transparent 70%),
-                radial-gradient(520px circle at calc(var(--mx, 70%) - 18%) calc(var(--my, 40%) + 16%), color-mix(in srgb, var(--s6) 10%, transparent), transparent 70%); }
+  #glow { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .5s;
+    background: radial-gradient(circle 380px at var(--gx, 50%) var(--gy, 50%), color-mix(in srgb, var(--s5) 16%, transparent), transparent 100%),
+                radial-gradient(circle 460px at calc(var(--gx, 50%) - 160px) calc(var(--gy, 50%) + 120px), color-mix(in srgb, var(--s6) 11%, transparent), transparent 100%); }
+  #glow.on { opacity: 1; }
   .kicker { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
   .kicker i { display: inline-block; width: 38px; height: 8px; border-radius: 4px;
     background: linear-gradient(90deg, var(--s1) 0 16.66%, var(--s2) 0 33.33%, var(--s3) 0 50%, var(--s4) 0 66.66%, var(--s5) 0 83.33%, var(--s6) 0 100%); }
@@ -188,6 +189,7 @@
 </head>
 <body>
 <div id="progress"></div>
+<div id="glow"></div>
 <div id="tip" role="status"></div>
 <div class="wrap">
 
@@ -517,11 +519,13 @@ const A = (cls, a, d) => a ? ` a ${cls}" style="--d:${d}s` : '';
   }
   svg.addEventListener('pointermove', move);
   svg.addEventListener('pointerleave', () => { bands.forEach(b => b.style.transform = ''); tipEl.innerHTML = '<b>Six stripes, six findings.</b> Move across the bolt.'; });
+  const glow = $('#glow');
   hero.addEventListener('pointermove', e => {
-    const r = hero.getBoundingClientRect();
-    hero.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
-    hero.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+    glow.style.setProperty('--gx', e.clientX + 'px');
+    glow.style.setProperty('--gy', e.clientY + 'px');
+    glow.classList.add('on');
   });
+  hero.addEventListener('pointerleave', () => glow.classList.remove('on'));
 })();
 
 /* ---------- scroll progress + count up ---------- */
