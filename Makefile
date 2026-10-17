@@ -2,7 +2,7 @@ PY ?= python
 EXP = experiments
 export PYTHONPATH := $(CURDIR)$(if $(PYTHONPATH),:$(PYTHONPATH),)
 
-.PHONY: ablation test smoke sweep power baselines peak train hybrid convergence tables figures reproduce lint
+.PHONY: ablation test smoke sweep power baselines peak train hybrid convergence frozen tables figures reproduce lint
 
 test:
 	$(PY) -m pytest -q tests
@@ -36,13 +36,19 @@ ablation:     # each MLX-native optimization off in turn + model-size sweep
 convergence:  # same loss/accuracy on cpu, mlx and hybrid-fp16 paths
 	cd $(EXP) && $(PY) run_convergence.py
 
+frozen:       # frozen ANE trunk + GPU-trained head (sudo -E make frozen-power for energy)
+	cd $(EXP) && $(PY) run_frozen.py --preset full
+
+frozen-power: # run as: sudo -E make frozen-power
+	cd $(EXP) && $(PY) run_frozen.py --preset full --power
+
 tables:
 	cd $(EXP) && $(PY) make_tables.py
 
 figures:
 	cd $(EXP) && $(PY) make_figures.py
 
-reproduce: test sweep baselines peak train ablation hybrid convergence tables figures
+reproduce: test sweep baselines peak train ablation hybrid convergence frozen tables figures
 
 lint:
 	black --check energizer tests experiments examples scripts

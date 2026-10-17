@@ -202,6 +202,75 @@ def power_table(merge_all: bool) -> None:
         )
 
 
+def _frozen():
+    """{config: {path: {'s': median seconds, 'j': energy J or None, 'acc': float}}}"""
+    d = defaultdict(lambda: defaultdict(lambda: {"s": [], "j": [], "acc": None}))
+    for r in _rows("frozen", True):
+        if r.get("status") != "ok":
+            continue
+        e = d[r["config"]][r["path"]]
+        e["s"].append(r["timing"]["median_s"])
+        e["acc"] = r["timing"]["test_acc"]
+        pr = (r.get("power") or {}).get("net_per_run_mj")
+        if pr:
+            e["j"].append(pr["combined_net_mj"] / 1e3)
+    return d
+
+
+def frozen_table() -> None:
+    d = _frozen()
+    body = []
+    for cfg, paths in d.items():
+        if not {"mlx_fp16", "coreml_CPU_AND_NE"} <= set(paths):
+            continue
+        g = lambda p, k: median(paths[p][k]) if paths[p][k] else None
+        f16, ane, pipe = (g("mlx_fp16", "s"), g("coreml_CPU_AND_NE", "s"), g("coreml_CPU_AND_NE_pipe", "s"))
+        e16, eane = g("mlx_fp16", "j"), g("coreml_CPU_AND_NE", "j")
+        body.append(
+            (
+                cfg.replace("-", "{-}"),
+                f"{g('mlx_fp32', 's'):.2f}",
+                f"{f16:.2f}",
+                f"{ane:.2f}",
+                f"{pipe:.2f}",
+                f"{f16 / ane:.1f}$\\times$",
+                f"{e16:.1f}" if e16 else "--",
+                f"{eane:.1f}" if eane else "--",
+                f"{e16 / eane:.0f}$\\times$" if e16 and eane else "--",
+                f"{100 * paths['mlx_fp16']['acc']:.1f}\\%",
+            )
+        )
+    if body:
+        _tex(
+            os.path.join(OUT, "frozen.tex"),
+            ["trunk", "fp32 s", "fp16 s", "ANE s", "ANE+pipe s", "speed", "fp16 J", "ANE J", "energy", "acc"],
+            body,
+            "Frozen-trunk fine-tuning (5 epochs, online): wall time and idle-subtracted energy per run. "
+            "Trunk on the MLX GPU (fp32, fp16) vs Core ML on the ANE (alone, and pipelined with the GPU head step). "
+            "Speed and energy columns are MLX fp16 divided by ANE; accuracy is the head's test accuracy.",
+            "tab:frozen",
+        )
+    cached = []
+    for cfg, paths in d.items():
+        if "mlx_fp16_cached" not in paths or "coreml_CPU_AND_NE_cached" not in paths:
+            continue
+        g = lambda p, k: median(paths[p][k]) if paths[p][k] else None
+        a, b = g("mlx_fp16_cached", "s"), g("coreml_CPU_AND_NE_cached", "s")
+        ea, eb = g("mlx_fp16_cached", "j"), g("coreml_CPU_AND_NE_cached", "j")
+        cached.append(
+            (cfg.replace("-", "{-}"), f"{a:.2f}", f"{b:.2f}", f"{a / b:.1f}$\\times$",
+             f"{ea:.1f}" if ea else "--", f"{eb:.1f}" if eb else "--")
+        )
+    if cached:
+        _tex(
+            os.path.join(OUT, "frozen_cached.tex"),
+            ["trunk", "fp16 s", "ANE s", "speed", "fp16 J", "ANE J"],
+            cached,
+            "Frozen trunk with cached features: features extracted once, then 5 epochs on the cache.",
+            "tab:frozen-cached",
+        )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -215,6 +284,7 @@ def main() -> None:
     hybrid_table(a.all)
     convergence_table(a.all)
     power_table(a.all)
+    frozen_table()
 
 
 if __name__ == "__main__":

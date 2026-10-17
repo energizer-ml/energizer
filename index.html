@@ -228,6 +228,7 @@
       <a href="#results">results</a>
       <a href="#power">power</a>
       <a href="#training">training</a>
+      <a href="#frozen">frozen</a>
       <a href="#conclusion">conclusion</a>
       <a href="#method">method</a>
       <a href="#status">status</a>
@@ -428,10 +429,27 @@
     </figure>
   </section>
 
+  <section id="frozen" style="--dot: var(--s2)">
+    <span class="tag" style="--dot: var(--s2)">Frozen trunk</span>
+    <h2>Where the ANE does win training work.</h2>
+    <p>The hybrid failed because the ANE model must be rebuilt after every weight update. If the trunk never changes, there is nothing to rebuild. We froze a pre-trained trunk, trained a new head on it, and ran the trunk on the GPU or on the ANE.</p>
+
+    <figure class="chart">
+      <figcaption>
+        <div><div class="ctitle">Training a head on a frozen trunk</div><div class="csub">5 epochs, batch 256 unless noted, lower is better. Hover the bars.</div></div>
+        <div class="ctrl"><div class="seg" id="fz-met"><button aria-pressed="true" data-v="s">Time</button><button aria-pressed="false" data-v="j">Energy</button></div></div>
+      </figcaption>
+      <div class="plot" id="ch-frozen"></div>
+      <div class="legend" id="lg-fz"></div>
+      <div class="big"><span class="num"><span id="fz-n">0</span>&times;</span><span class="muted" id="fz-t">less energy than the GPU on the widest CNN trunk, with the same accuracy.</span></div>
+    </figure>
+    <p class="note">The head reaches the same test accuracy whichever unit runs the trunk (within 0.05 points). Convolutions gain most, 2.1&ndash;2.4&times; faster and 10&ndash;11&times; less energy than MLX fp16; the smallest MLP gains only 1.1&times; in time. Overlapping the ANE trunk with the GPU head step adds another 1.2&ndash;1.6&times;. The MLP heads reach only 50&ndash;77% because our brief pre-training transfers poorly, so only their time and energy count. The GPU baseline is a plain MLX forward, not compiled with <code>mx.compile</code>.</p>
+  </section>
+
   <section id="conclusion" style="--dot: var(--s4)">
     <span class="tag" style="--dot: var(--s4)">Conclusion</span>
     <h2>An efficient inference engine, not a training accelerator.</h2>
-    <p>We started with four expectations about the Neural Engine. Here is what the measurements say.</p>
+    <p>We started with a set of expectations about the Neural Engine. Here is what the measurements say.</p>
     <table class="verdict">
       <thead><tr><th>We expected</th><th>We measured</th><th>Verdict</th></tr></thead>
       <tbody>
@@ -440,6 +458,7 @@
         <tr><td>The ANE is the fastest unit</td><td>5.2 TFLOP/s peak against 6.0 for MLX; fastest only on the transformer workload.</td><td><span class="v part">Partly</span></td></tr>
         <tr><td>The ANE is more efficient</td><td>Median 2.7&nbsp;W on its rail. The GPU path takes 1.34&times; the latency and 2.82&times; the energy.</td><td><span class="v yes">Yes</span></td></tr>
         <tr><td>A hybrid step (ANE forward, GPU backward) is cheaper</td><td>Refreshing Core ML weights costs 260&ndash;320&nbsp;ms; never beats pure MLX at widths 256&ndash;1024.</td><td><span class="v no">No</span></td></tr>
+        <tr><td>The ANE still helps when weights are frozen</td><td>A frozen CNN trunk on the ANE trains the head 2.1&ndash;2.4&times; faster and with 10&ndash;11&times; less energy than MLX fp16, at the same accuracy.</td><td><span class="v yes">Yes</span></td></tr>
         <tr><td>The hybrid reaches the same accuracy</td><td>Only with a refresh every step (92.98% vs 93.00%) at ~300&times; the energy; every 5 or 20 steps diverged.</td><td><span class="v part">Only at a high cost</span></td></tr>
       </tbody>
     </table>
@@ -447,7 +466,7 @@
       <div>
         <span class="tag" style="--dot: var(--s1)">What it is good for</span>
         <h3 style="margin-top:10px">Fixed-weight fp16 inference</h3>
-        <p>Large enough operators, weights that do not change, and a power budget that matters. That is where the ANE draws about 2.7&nbsp;W and finishes the work for a fraction of the energy.</p>
+        <p>Large enough operators, weights that do not change, and a power budget that matters. That is where the ANE draws about 2.7&nbsp;W and finishes the work for a fraction of the energy, including the frozen part of a training job.</p>
       </div>
       <div>
         <span class="tag" style="--dot: var(--s4)">What it is not</span>
@@ -456,7 +475,7 @@
       </div>
     </div>
     <p class="paper-cta"><a class="btn solid" href="assets/energizer-ane-paper.pdf">Read the full paper (PDF)</a></p>
-    <p class="note">What this does not show: larger models, other chips and later OS releases may move the thresholds. A frozen feature extractor feeding a trainable head fits our energy results but was not tested. Private interfaces were not used and might change the answer.</p>
+    <p class="note">What this does not show: larger models, other chips and later OS releases may move the thresholds. The frozen-trunk test used small trunks (up to 31M parameters) on one transfer task. Private interfaces were not used and might change the answer.</p>
   </section>
 
   <section id="method" style="--dot: var(--s1)">
@@ -646,7 +665,7 @@ make tables figures     # paper/tables/*.tex, paper/figures/*.pdf</code></pre>
 <div class="stripe-end"></div>
 
 <script>
-const DATA = {"latency":{"coreml_cpu_ne":{"128":0.047,"256":0.084,"512":0.283,"1024":0.905,"2048":4.104,"4096":27.157},"coreml_cpu_gpu":{"128":0.047,"256":0.084,"512":0.607,"1024":1.232,"2048":6.174,"4096":34.932},"mlx":{"128":0.108,"256":0.17,"512":0.416,"1024":0.505,"2048":3.021,"4096":22.899},"torch_mps":{"128":0.158,"256":0.14,"512":0.213,"1024":0.535,"2048":3.292,"4096":24.846}},"peak":{"coreml_cpu_ne|fp16":5.16,"coreml_cpu_gpu|fp16":3.99,"mlx|fp16":6.01,"torch_mps|fp16":5.52,"coreml_cpu_ne|fp32":3.18,"coreml_cpu_gpu|fp32":4.34,"mlx|fp32":5.36,"torch_mps|fp32":4.84},"conv_grid":[[16,32,1,0],[16,32,8,0],[16,64,1,0],[16,64,8,0],[16,128,1,0],[16,128,8,1.0],[32,32,1,0],[32,32,8,0],[32,64,1,0],[32,64,8,1.0],[32,128,1,0],[32,128,8,1.0],[64,32,1,0],[64,32,8,1.0],[64,64,1,0],[64,64,8,1.0],[64,128,1,1.0],[64,128,8,1.0],[128,32,1,0],[128,32,8,1.0],[128,64,1,1.0],[128,64,8,1.0],[128,128,1,1.0],[128,128,8,1.0],[256,32,1,1.0],[256,32,8,1.0],[256,64,1,1.0],[256,64,8,1.0],[256,128,1,1.0],[256,128,8,1.0],[512,32,1,1.0],[512,32,8,1.0],[512,64,1,1.0],[512,64,8,1.0],[512,128,1,1.0],[512,128,8,1.0]],"tfm_grid":[[16,256,1,1.0],[16,256,8,0],[16,512,1,0],[16,512,8,1.0],[64,256,1,1.0],[64,256,8,1.0],[64,512,1,0],[64,512,8,1.0],[128,256,1,0],[128,256,8,1.0],[128,512,1,1.0],[128,512,8,1.0],[256,256,1,1.0],[256,256,8,1.0],[256,512,1,1.0],[256,512,8,1.0],[512,256,1,1.0],[512,256,8,1.0],[512,512,1,1.0],[512,512,8,0.68],[1024,256,1,1.0],[1024,256,8,0.86],[1024,512,1,1.0],[1024,512,8,0.77]],"power":{"conv_c16_hw32_k3_b8":{"ALL":[0.21,1.0,0.0],"CPU_AND_NE":[0.21,1.1,0.0],"CPU_AND_GPU":[0.21,1.0,0.0],"CPU_ONLY":[0.2,1.0,0.0]},"conv_c16_hw64_k3_b8":{"ALL":[0.4,2.2,0.0],"CPU_AND_NE":[0.44,2.3,0.0],"CPU_AND_GPU":[0.41,2.3,0.0],"CPU_ONLY":[0.45,2.3,0.0]},"conv_c16_hw128_k3_b8":{"ALL":[1.52,8.5,1.08],"CPU_AND_NE":[1.49,8.4,0.43],"CPU_AND_GPU":[1.91,12.8,0.03],"CPU_ONLY":[1.59,8.9,0.0]},"conv_c32_hw32_k3_b8":{"ALL":[0.31,2.2,0.0],"CPU_AND_NE":[0.36,2.0,0.0],"CPU_AND_GPU":[0.31,1.9,0.0],"CPU_ONLY":[0.34,2.0,0.0]},"conv_c32_hw64_k3_b8":{"ALL":[0.8,4.1,0.9],"CPU_AND_NE":[0.77,4.1,1.14],"CPU_AND_GPU":[0.77,4.3,0.0],"CPU_ONLY":[0.84,4.3,0.0]},"conv_c32_hw128_k3_b8":{"ALL":[2.75,15.9,0.77],"CPU_AND_NE":[2.95,18.8,0.93],"CPU_AND_GPU":[3.35,21.6,0.0],"CPU_ONLY":[3.25,17.1,0.0]},"conv_c64_hw32_k3_b8":{"ALL":[0.43,2.3,0.81],"CPU_AND_NE":[0.47,2.4,1.67],"CPU_AND_GPU":[0.47,2.5,0.0],"CPU_ONLY":[0.52,2.4,0.0]},"conv_c64_hw64_k3_b8":{"ALL":[1.48,9.2,1.6],"CPU_AND_NE":[1.46,8.8,1.42],"CPU_AND_GPU":[1.75,20.1,0.0],"CPU_ONLY":[1.85,10.3,0.0]},"conv_c64_hw128_k3_b8":{"ALL":[5.55,32.9,1.0],"CPU_AND_NE":[5.63,33.1,1.37],"CPU_AND_GPU":[6.7,39.5,0.0],"CPU_ONLY":[7.05,37.5,0.0]},"conv_c128_hw32_k3_b8":{"ALL":[0.83,5.4,2.24],"CPU_AND_NE":[0.84,5.9,2.29],"CPU_AND_GPU":[1.16,15.1,0.0],"CPU_ONLY":[1.22,6.5,0.0]},"conv_c128_hw64_k3_b8":{"ALL":[3.09,25.8,2.13],"CPU_AND_NE":[3.17,19.6,1.72],"CPU_AND_GPU":[4.24,30.3,0.0],"CPU_ONLY":[5.0,18.5,0.0]},"conv_c128_hw128_k3_b8":{"ALL":[11.98,78.8,2.02],"CPU_AND_NE":[11.9,76.8,2.03],"CPU_AND_GPU":[15.91,86.7,0.0],"CPU_ONLY":[20.13,77.6,0.0]},"conv_c256_hw32_k3_b8":{"ALL":[1.9,14.8,3.56],"CPU_AND_NE":[1.95,15.2,3.52],"CPU_AND_GPU":[2.66,49.5,0.0],"CPU_ONLY":[2.5,19.7,0.0]},"conv_c256_hw64_k3_b8":{"ALL":[7.2,56.1,3.42],"CPU_AND_NE":[7.09,56.9,3.47],"CPU_AND_GPU":[10.28,97.7,0.0],"CPU_ONLY":[10.11,81.1,0.0]},"conv_c256_hw128_k3_b8":{"ALL":[28.21,215.1,3.5],"CPU_AND_NE":[27.67,208.4,3.48],"CPU_AND_GPU":[41.02,587.2,0.0],"CPU_ONLY":[42.14,310.0,0.0]},"conv_c512_hw32_k3_b8":{"ALL":[4.67,38.9,5.24],"CPU_AND_NE":[4.71,38.2,5.34],"CPU_AND_GPU":[8.21,70.9,0.0],"CPU_ONLY":[7.41,61.8,0.0]},"conv_c512_hw64_k3_b8":{"ALL":[18.06,163.2,5.42],"CPU_AND_NE":[18.2,152.2,5.41],"CPU_AND_GPU":[30.53,642.2,2.22],"CPU_ONLY":[30.71,297.6,0.1]},"conv_c512_hw128_k3_b8":{"ALL":[72.0,733.6,6.29],"CPU_AND_NE":[70.7,606.0,5.47],"CPU_AND_GPU":[120.23,2439.6,0.0],"CPU_ONLY":[131.68,1104.5,0.0]},"matmul_128x128x128_b8":{"ALL":[0.16,0.6,0.0],"CPU_AND_NE":[0.12,0.6,0.0],"CPU_AND_GPU":[0.13,0.6,0.0],"CPU_ONLY":[0.12,0.6,0.0]},"matmul_256x256x256_b8":{"ALL":[0.44,2.4,0.72],"CPU_AND_NE":[0.48,2.4,1.08],"CPU_AND_GPU":[0.39,2.1,0.0],"CPU_ONLY":[0.4,2.5,0.0]},"matmul_512x512x512_b8":{"ALL":[1.78,10.0,1.36],"CPU_AND_NE":[1.54,9.5,1.77],"CPU_AND_GPU":[1.79,21.3,0.0],"CPU_ONLY":[1.75,9.6,0.0]},"matmul_1024x1024x1024_b8":{"ALL":[6.34,41.3,1.96],"CPU_AND_NE":[6.16,41.1,2.09],"CPU_AND_GPU":[8.43,49.9,0.0],"CPU_ONLY":[8.9,33.8,0.52]},"tfm_s16_d256_h4_b8":{"ALL":[0.34,3.5,0.0],"CPU_AND_NE":[0.16,0.8,1.6],"CPU_AND_GPU":[0.33,3.5,0.0],"CPU_ONLY":[0.19,1.0,0.0]},"tfm_s16_d512_h8_b8":{"ALL":[0.24,1.3,3.07],"CPU_AND_NE":[0.24,1.8,3.13],"CPU_AND_GPU":[0.46,7.0,0.0],"CPU_ONLY":[0.42,2.5,0.0]},"tfm_s64_d256_h4_b8":{"ALL":[0.3,2.9,2.71],"CPU_AND_NE":[0.31,1.8,2.73],"CPU_AND_GPU":[0.54,7.9,0.0],"CPU_ONLY":[0.52,3.8,0.0]},"tfm_s64_d512_h8_b8":{"ALL":[0.65,3.8,4.12],"CPU_AND_NE":[0.66,3.8,4.26],"CPU_AND_GPU":[1.18,18.3,0.01],"CPU_ONLY":[1.38,7.6,0.0]},"tfm_s128_d256_h4_b8":{"ALL":[0.57,2.9,2.98],"CPU_AND_NE":[0.56,2.8,3.16],"CPU_AND_GPU":[0.87,13.5,0.01],"CPU_ONLY":[1.05,6.5,0.0]},"tfm_s128_d512_h8_b8":{"ALL":[1.36,8.2,4.05],"CPU_AND_NE":[1.4,7.5,4.04],"CPU_AND_GPU":[2.02,36.1,0.01],"CPU_ONLY":[2.13,18.1,0.0]},"tfm_s256_d256_h4_b8":{"ALL":[1.36,5.9,2.91],"CPU_AND_NE":[1.35,5.9,2.87],"CPU_AND_GPU":[1.5,26.3,0.0],"CPU_ONLY":[1.89,15.3,0.0]},"tfm_s256_d512_h8_b8":{"ALL":[3.15,17.8,3.96],"CPU_AND_NE":[3.14,15.5,3.89],"CPU_AND_GPU":[3.76,76.3,0.0],"CPU_ONLY":[4.04,38.7,0.0]},"tfm_s512_d256_h4_b8":{"ALL":[3.68,13.4,2.75],"CPU_AND_NE":[3.69,13.3,2.75],"CPU_AND_GPU":[2.88,55.9,0.0],"CPU_ONLY":[3.92,36.0,0.0]},"tfm_s512_d512_h8_b8":{"ALL":[9.27,51.2,2.59],"CPU_AND_NE":[8.39,40.3,3.45],"CPU_AND_GPU":[7.59,165.2,0.0],"CPU_ONLY":[9.6,90.8,0.0]},"tfm_s1024_d256_h4_b8":{"ALL":[15.03,53.9,1.92],"CPU_AND_NE":[10.97,32.9,2.56],"CPU_AND_GPU":[6.51,134.0,0.0],"CPU_ONLY":[12.38,97.5,0.0]},"tfm_s1024_d512_h8_b8":{"ALL":[36.89,160.8,1.9],"CPU_AND_NE":[24.1,83.0,3.05],"CPU_AND_GPU":[17.39,322.1,0.0],"CPU_ONLY":[27.27,260.8,0.77]}},"train":{"mlp_1024x3":{"cpu_adam":8.92,"cpu_sgd":4.95,"mlx_adam":1.94,"mlx_sgd":1.15},"mlp_2048x3":{"cpu_adam":40.13,"cpu_sgd":23.06,"mlx_adam":7.54,"mlx_sgd":3.46},"cnn_c32_hw32":{"cpu_adam":35.6,"cpu_sgd":35.2,"mlx_adam":4.59,"mlx_sgd":4.5},"tfm_s64_d256_l2":{"cpu_adam":29.74,"cpu_sgd":27.03,"mlx_adam":7.17,"mlx_sgd":5.59}},"ablation":{"full":{"256":0.55,"512":0.82,"1024":1.94,"2048":7.45,"4096":27.72},"no_native_loss":{"256":0.73,"512":1.0,"1024":2.15,"2048":7.67,"4096":28.16},"no_native_optim":{"256":1.46,"512":1.97,"1024":5.44,"2048":23.69,"4096":136.16},"none":{"256":1.57,"512":2.09,"1024":5.47,"2048":23.91,"4096":132.87},"cpu":{"256":0.93,"512":2.41,"1024":8.49,"2048":39.46,"4096":283.64}},"hybrid":[[256,"ALL",0.358,0.013,0.64,0.847,270],[256,"CPU_AND_NE",0.208,0.008,0.559,0.352,259],[512,"ALL",0.301,0.013,0.4,0.488,299],[512,"CPU_AND_NE",0.285,0.015,0.577,0.465,268],[1024,"ALL",0.685,0.024,0.739,1.066,284],[1024,"CPU_AND_NE",0.487,0.028,0.814,1.115,320]]};
+const DATA = {"latency":{"coreml_cpu_ne":{"128":0.047,"256":0.084,"512":0.283,"1024":0.905,"2048":4.104,"4096":27.157},"coreml_cpu_gpu":{"128":0.047,"256":0.084,"512":0.607,"1024":1.232,"2048":6.174,"4096":34.932},"mlx":{"128":0.108,"256":0.17,"512":0.416,"1024":0.505,"2048":3.021,"4096":22.899},"torch_mps":{"128":0.158,"256":0.14,"512":0.213,"1024":0.535,"2048":3.292,"4096":24.846}},"peak":{"coreml_cpu_ne|fp16":5.16,"coreml_cpu_gpu|fp16":3.99,"mlx|fp16":6.01,"torch_mps|fp16":5.52,"coreml_cpu_ne|fp32":3.18,"coreml_cpu_gpu|fp32":4.34,"mlx|fp32":5.36,"torch_mps|fp32":4.84},"conv_grid":[[16,32,1,0],[16,32,8,0],[16,64,1,0],[16,64,8,0],[16,128,1,0],[16,128,8,1.0],[32,32,1,0],[32,32,8,0],[32,64,1,0],[32,64,8,1.0],[32,128,1,0],[32,128,8,1.0],[64,32,1,0],[64,32,8,1.0],[64,64,1,0],[64,64,8,1.0],[64,128,1,1.0],[64,128,8,1.0],[128,32,1,0],[128,32,8,1.0],[128,64,1,1.0],[128,64,8,1.0],[128,128,1,1.0],[128,128,8,1.0],[256,32,1,1.0],[256,32,8,1.0],[256,64,1,1.0],[256,64,8,1.0],[256,128,1,1.0],[256,128,8,1.0],[512,32,1,1.0],[512,32,8,1.0],[512,64,1,1.0],[512,64,8,1.0],[512,128,1,1.0],[512,128,8,1.0]],"tfm_grid":[[16,256,1,1.0],[16,256,8,0],[16,512,1,0],[16,512,8,1.0],[64,256,1,1.0],[64,256,8,1.0],[64,512,1,0],[64,512,8,1.0],[128,256,1,0],[128,256,8,1.0],[128,512,1,1.0],[128,512,8,1.0],[256,256,1,1.0],[256,256,8,1.0],[256,512,1,1.0],[256,512,8,1.0],[512,256,1,1.0],[512,256,8,1.0],[512,512,1,1.0],[512,512,8,0.68],[1024,256,1,1.0],[1024,256,8,0.86],[1024,512,1,1.0],[1024,512,8,0.77]],"power":{"conv_c16_hw32_k3_b8":{"ALL":[0.21,1.0,0.0],"CPU_AND_NE":[0.21,1.1,0.0],"CPU_AND_GPU":[0.21,1.0,0.0],"CPU_ONLY":[0.2,1.0,0.0]},"conv_c16_hw64_k3_b8":{"ALL":[0.4,2.2,0.0],"CPU_AND_NE":[0.44,2.3,0.0],"CPU_AND_GPU":[0.41,2.3,0.0],"CPU_ONLY":[0.45,2.3,0.0]},"conv_c16_hw128_k3_b8":{"ALL":[1.52,8.5,1.08],"CPU_AND_NE":[1.49,8.4,0.43],"CPU_AND_GPU":[1.91,12.8,0.03],"CPU_ONLY":[1.59,8.9,0.0]},"conv_c32_hw32_k3_b8":{"ALL":[0.31,2.2,0.0],"CPU_AND_NE":[0.36,2.0,0.0],"CPU_AND_GPU":[0.31,1.9,0.0],"CPU_ONLY":[0.34,2.0,0.0]},"conv_c32_hw64_k3_b8":{"ALL":[0.8,4.1,0.9],"CPU_AND_NE":[0.77,4.1,1.14],"CPU_AND_GPU":[0.77,4.3,0.0],"CPU_ONLY":[0.84,4.3,0.0]},"conv_c32_hw128_k3_b8":{"ALL":[2.75,15.9,0.77],"CPU_AND_NE":[2.95,18.8,0.93],"CPU_AND_GPU":[3.35,21.6,0.0],"CPU_ONLY":[3.25,17.1,0.0]},"conv_c64_hw32_k3_b8":{"ALL":[0.43,2.3,0.81],"CPU_AND_NE":[0.47,2.4,1.67],"CPU_AND_GPU":[0.47,2.5,0.0],"CPU_ONLY":[0.52,2.4,0.0]},"conv_c64_hw64_k3_b8":{"ALL":[1.48,9.2,1.6],"CPU_AND_NE":[1.46,8.8,1.42],"CPU_AND_GPU":[1.75,20.1,0.0],"CPU_ONLY":[1.85,10.3,0.0]},"conv_c64_hw128_k3_b8":{"ALL":[5.55,32.9,1.0],"CPU_AND_NE":[5.63,33.1,1.37],"CPU_AND_GPU":[6.7,39.5,0.0],"CPU_ONLY":[7.05,37.5,0.0]},"conv_c128_hw32_k3_b8":{"ALL":[0.83,5.4,2.24],"CPU_AND_NE":[0.84,5.9,2.29],"CPU_AND_GPU":[1.16,15.1,0.0],"CPU_ONLY":[1.22,6.5,0.0]},"conv_c128_hw64_k3_b8":{"ALL":[3.09,25.8,2.13],"CPU_AND_NE":[3.17,19.6,1.72],"CPU_AND_GPU":[4.24,30.3,0.0],"CPU_ONLY":[5.0,18.5,0.0]},"conv_c128_hw128_k3_b8":{"ALL":[11.98,78.8,2.02],"CPU_AND_NE":[11.9,76.8,2.03],"CPU_AND_GPU":[15.91,86.7,0.0],"CPU_ONLY":[20.13,77.6,0.0]},"conv_c256_hw32_k3_b8":{"ALL":[1.9,14.8,3.56],"CPU_AND_NE":[1.95,15.2,3.52],"CPU_AND_GPU":[2.66,49.5,0.0],"CPU_ONLY":[2.5,19.7,0.0]},"conv_c256_hw64_k3_b8":{"ALL":[7.2,56.1,3.42],"CPU_AND_NE":[7.09,56.9,3.47],"CPU_AND_GPU":[10.28,97.7,0.0],"CPU_ONLY":[10.11,81.1,0.0]},"conv_c256_hw128_k3_b8":{"ALL":[28.21,215.1,3.5],"CPU_AND_NE":[27.67,208.4,3.48],"CPU_AND_GPU":[41.02,587.2,0.0],"CPU_ONLY":[42.14,310.0,0.0]},"conv_c512_hw32_k3_b8":{"ALL":[4.67,38.9,5.24],"CPU_AND_NE":[4.71,38.2,5.34],"CPU_AND_GPU":[8.21,70.9,0.0],"CPU_ONLY":[7.41,61.8,0.0]},"conv_c512_hw64_k3_b8":{"ALL":[18.06,163.2,5.42],"CPU_AND_NE":[18.2,152.2,5.41],"CPU_AND_GPU":[30.53,642.2,2.22],"CPU_ONLY":[30.71,297.6,0.1]},"conv_c512_hw128_k3_b8":{"ALL":[72.0,733.6,6.29],"CPU_AND_NE":[70.7,606.0,5.47],"CPU_AND_GPU":[120.23,2439.6,0.0],"CPU_ONLY":[131.68,1104.5,0.0]},"matmul_128x128x128_b8":{"ALL":[0.16,0.6,0.0],"CPU_AND_NE":[0.12,0.6,0.0],"CPU_AND_GPU":[0.13,0.6,0.0],"CPU_ONLY":[0.12,0.6,0.0]},"matmul_256x256x256_b8":{"ALL":[0.44,2.4,0.72],"CPU_AND_NE":[0.48,2.4,1.08],"CPU_AND_GPU":[0.39,2.1,0.0],"CPU_ONLY":[0.4,2.5,0.0]},"matmul_512x512x512_b8":{"ALL":[1.78,10.0,1.36],"CPU_AND_NE":[1.54,9.5,1.77],"CPU_AND_GPU":[1.79,21.3,0.0],"CPU_ONLY":[1.75,9.6,0.0]},"matmul_1024x1024x1024_b8":{"ALL":[6.34,41.3,1.96],"CPU_AND_NE":[6.16,41.1,2.09],"CPU_AND_GPU":[8.43,49.9,0.0],"CPU_ONLY":[8.9,33.8,0.52]},"tfm_s16_d256_h4_b8":{"ALL":[0.34,3.5,0.0],"CPU_AND_NE":[0.16,0.8,1.6],"CPU_AND_GPU":[0.33,3.5,0.0],"CPU_ONLY":[0.19,1.0,0.0]},"tfm_s16_d512_h8_b8":{"ALL":[0.24,1.3,3.07],"CPU_AND_NE":[0.24,1.8,3.13],"CPU_AND_GPU":[0.46,7.0,0.0],"CPU_ONLY":[0.42,2.5,0.0]},"tfm_s64_d256_h4_b8":{"ALL":[0.3,2.9,2.71],"CPU_AND_NE":[0.31,1.8,2.73],"CPU_AND_GPU":[0.54,7.9,0.0],"CPU_ONLY":[0.52,3.8,0.0]},"tfm_s64_d512_h8_b8":{"ALL":[0.65,3.8,4.12],"CPU_AND_NE":[0.66,3.8,4.26],"CPU_AND_GPU":[1.18,18.3,0.01],"CPU_ONLY":[1.38,7.6,0.0]},"tfm_s128_d256_h4_b8":{"ALL":[0.57,2.9,2.98],"CPU_AND_NE":[0.56,2.8,3.16],"CPU_AND_GPU":[0.87,13.5,0.01],"CPU_ONLY":[1.05,6.5,0.0]},"tfm_s128_d512_h8_b8":{"ALL":[1.36,8.2,4.05],"CPU_AND_NE":[1.4,7.5,4.04],"CPU_AND_GPU":[2.02,36.1,0.01],"CPU_ONLY":[2.13,18.1,0.0]},"tfm_s256_d256_h4_b8":{"ALL":[1.36,5.9,2.91],"CPU_AND_NE":[1.35,5.9,2.87],"CPU_AND_GPU":[1.5,26.3,0.0],"CPU_ONLY":[1.89,15.3,0.0]},"tfm_s256_d512_h8_b8":{"ALL":[3.15,17.8,3.96],"CPU_AND_NE":[3.14,15.5,3.89],"CPU_AND_GPU":[3.76,76.3,0.0],"CPU_ONLY":[4.04,38.7,0.0]},"tfm_s512_d256_h4_b8":{"ALL":[3.68,13.4,2.75],"CPU_AND_NE":[3.69,13.3,2.75],"CPU_AND_GPU":[2.88,55.9,0.0],"CPU_ONLY":[3.92,36.0,0.0]},"tfm_s512_d512_h8_b8":{"ALL":[9.27,51.2,2.59],"CPU_AND_NE":[8.39,40.3,3.45],"CPU_AND_GPU":[7.59,165.2,0.0],"CPU_ONLY":[9.6,90.8,0.0]},"tfm_s1024_d256_h4_b8":{"ALL":[15.03,53.9,1.92],"CPU_AND_NE":[10.97,32.9,2.56],"CPU_AND_GPU":[6.51,134.0,0.0],"CPU_ONLY":[12.38,97.5,0.0]},"tfm_s1024_d512_h8_b8":{"ALL":[36.89,160.8,1.9],"CPU_AND_NE":[24.1,83.0,3.05],"CPU_AND_GPU":[17.39,322.1,0.0],"CPU_ONLY":[27.27,260.8,0.77]}},"train":{"mlp_1024x3":{"cpu_adam":8.92,"cpu_sgd":4.95,"mlx_adam":1.94,"mlx_sgd":1.15},"mlp_2048x3":{"cpu_adam":40.13,"cpu_sgd":23.06,"mlx_adam":7.54,"mlx_sgd":3.46},"cnn_c32_hw32":{"cpu_adam":35.6,"cpu_sgd":35.2,"mlx_adam":4.59,"mlx_sgd":4.5},"tfm_s64_d256_l2":{"cpu_adam":29.74,"cpu_sgd":27.03,"mlx_adam":7.17,"mlx_sgd":5.59}},"ablation":{"full":{"256":0.55,"512":0.82,"1024":1.94,"2048":7.45,"4096":27.72},"no_native_loss":{"256":0.73,"512":1.0,"1024":2.15,"2048":7.67,"4096":28.16},"no_native_optim":{"256":1.46,"512":1.97,"1024":5.44,"2048":23.69,"4096":136.16},"none":{"256":1.57,"512":2.09,"1024":5.47,"2048":23.91,"4096":132.87},"cpu":{"256":0.93,"512":2.41,"1024":8.49,"2048":39.46,"4096":283.64}},"hybrid":[[256,"ALL",0.358,0.013,0.64,0.847,270],[256,"CPU_AND_NE",0.208,0.008,0.559,0.352,259],[512,"ALL",0.301,0.013,0.4,0.488,299],[512,"CPU_AND_NE",0.285,0.015,0.577,0.465,268],[1024,"ALL",0.685,0.024,0.739,1.066,284],[1024,"CPU_AND_NE",0.487,0.028,0.814,1.115,320]],"frozen":[["MLP 512×4",[0.409,0.403,0.365,0.232],[4.0,3.6,1.6,1.4],0.7719],["MLP 1024×6",[0.833,0.794,0.495,0.317],[14.4,11.0,2.4,2.2],0.6465],["MLP 2048×8",[2.482,2.216,1.193,0.785],[66.5,50.5,4.3,3.9],0.559],["MLP 2048 · b64",[3.923,3.633,2.696,1.83],[72.1,55.4,7.1,7.6],0.5004],["CNN 16 ch",[1.521,1.376,0.569,0.384],[31.0,25.7,2.6,2.5],0.8947],["CNN 32 ch",[3.163,2.519,1.118,0.846],[71.7,53.2,5.2,4.9],0.9427],["CNN 64 ch",[8.84,6.594,3.087,2.653],[214.0,135.8,12.3,13.3],0.9388]]};
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -947,6 +966,47 @@ const A = (cls, a, d) => a ? ` a ${cls}" style="--d:${d}s` : '';
       el.addEventListener('pointermove', e => showTip(`<b>width ${el.dataset.w}</b><br>${el.dataset.t}: ${(+el.dataset.v).toFixed(3)} ms`, e));
       el.addEventListener('pointerleave', hideTip);
     });
+  });
+})();
+
+/* ---------- frozen trunk ---------- */
+(() => {
+  const get = seg('fz-met', () => { redraw(true); upd(); });
+  const S = [['MLX fp32', '--c-gpu', 1], ['MLX fp16', '--c-mlx', 1], ['Core ML on ANE', '--c-ane', 1], ['ANE + GPU pipelined', '--c-ane', .5]];
+  $('#lg-fz').innerHTML = S.map(([n, c, o]) => `<span class="pill" style="color:var(--ink)"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(${c});opacity:${o};margin-right:6px"></i>${n}</span>`).join('');
+  const wide = DATA.frozen[DATA.frozen.length - 1], nEl = $('#fz-n'), tEl = $('#fz-t');
+  function upd() {
+    const t = get() === 'j';
+    nEl.textContent = (t ? wide[2][1] / wide[2][2] : wide[1][1] / wide[1][2]).toFixed(t ? 0 : 1);
+    tEl.textContent = t ? 'less energy than MLX fp16 on the widest CNN trunk, with the same accuracy.' : 'faster than MLX fp16 on the widest CNN trunk, with the same accuracy.';
+  }
+  const redraw = mount('ch-frozen', (host, W, anim) => {
+    const k = get() === 'j' ? 2 : 1, rows = DATA.frozen, m = { l: 112, r: 96, t: 4, b: 28 }, bh = 11, g = 2, gg = 16;
+    const gh = S.length * (bh + g) - g, H = m.t + rows.length * (gh + gg) + m.b;
+    const mxv = Math.max(...rows.flatMap(r => r[k])) * 1.02, x = linS(0, mxv, m.l, W - m.r);
+    const unit = k === 2 ? ' J' : ' s', step = k === 2 ? 50 : 2;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="frozen trunk training ${k === 2 ? 'energy' : 'time'}">`;
+    for (let t = 0; t <= mxv; t += step) s += `<line class="grid" x1="${x(t)}" x2="${x(t)}" y1="${m.t}" y2="${H - m.b}"/><text x="${x(t)}" y="${H - 8}" text-anchor="middle">${t}${unit}</text>`;
+    rows.forEach((r, i) => {
+      const y0 = m.t + i * (gh + gg);
+      s += `<text class="lab" x="${m.l - 10}" y="${y0 + gh / 2 + 4}" text-anchor="end">${r[0]}</text>`;
+      S.forEach(([n, c, o], j) => {
+        const v = r[k][j], y = y0 + j * (bh + g);
+        s += `<rect class="bar${A('bar', anim, i * .06 + j * .05)}" data-n="${n}" data-r="${i}" data-v="${v}" x="${m.l}" y="${y}" width="${Math.max(2, x(v) - m.l)}" height="${bh}" rx="3" fill="var(${c})" opacity="${o}"/>`;
+      });
+      const best = r[k][2], ref = r[k][1];
+      s += `<text class="lab" x="${x(r[k][0]) + 6}" y="${y0 + bh - 1}" style="fill:var(--muted)">${fmt(r[k][0], k === 2 ? 0 : 1)}</text>`;
+      s += `<text class="lab" x="${W - m.r + 8}" y="${y0 + gh / 2 + 4}" style="fill:var(--c-ane);font-weight:600">${(ref / best).toFixed(ref / best >= 9.5 ? 0 : 1)}× ${k === 2 ? 'less' : 'faster'}</text>`;
+    });
+    host.innerHTML = s + '</svg>';
+    $$('.bar', host).forEach(el => {
+      el.addEventListener('pointermove', e => {
+        const r = rows[+el.dataset.r];
+        showTip(`<b>${r[0]}</b><br>${el.dataset.n}: ${fmt(+el.dataset.v, 2)}${unit}<br>head accuracy ${(r[3] * 100).toFixed(1)}%`, e);
+      });
+      el.addEventListener('pointerleave', hideTip);
+    });
+    upd();
   });
 })();
 

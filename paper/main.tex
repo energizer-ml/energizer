@@ -22,7 +22,10 @@ training, the largest gain comes not from the ANE but from running the whole
 step (forward, backward, loss, optimiser) natively on the GPU through MLX:
 4--8$\times$ faster than a NumPy CPU path. A hybrid ANE-forward/GPU-backward
 step never beats pure MLX on small models, because weight refresh requires a
-model recompilation of hundreds of milliseconds.
+model recompilation of hundreds of milliseconds. The ANE does win when the
+weights do not change: fine-tuning a head on a frozen convolutional trunk runs
+2.1--2.4$\times$ faster and uses about 10$\times$ less energy with the trunk on
+the ANE than on the GPU, at the same accuracy.
 \end{abstract}
 
 \section{Introduction}
@@ -135,6 +138,40 @@ In the energy breakdown of the refresh-every-step run, the CPU rail accounts for
 attributed 0.5~J to the ANE; we have not explained that difference, so we make
 no claim about the ANE share of hybrid energy.
 
+\paragraph{Frozen trunk.} The hybrid fails because the ANE model must be rebuilt
+after every update. If the trunk never changes, there is nothing to rebuild.
+We pre-train a trunk on MNIST digits 0--4, freeze it, and train a new linear
+head on digits 5--9 (Adam, 5 epochs, batch 256 unless noted). The trunk is
+compiled to Core~ML once. We compare the trunk forward on the MLX GPU (fp32 and
+fp16) with Core~ML on the ANE (placement 100\% ANE for every trunk), run online
+every step, pipelined (the ANE predicts batch $i{+}1$ while the GPU trains the head
+on batch $i$), or once into a feature cache (Tables~\ref{tab:frozen}
+and~\ref{tab:frozen-cached}, Figure~\ref{fig:frozen}).
+\input{tables/frozen}
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{figures/frozen.pdf}
+\caption{Frozen-trunk fine-tuning: time and energy per run for four trunk placements.}\label{fig:frozen}
+\end{figure}
+\input{tables/frozen_cached}
+Every head reaches the same test accuracy whatever runs the trunk (within
+0.05 points, fp16 trunk features within 0.1\% of fp32 for the Core~ML models and
+at most 0.8\% for MLX fp16). The gain grows with trunk compute and is largest
+for convolutions: on the widest CNN (64--256 channels, batch 256) the ANE run
+takes 3.1~s against 6.6~s for MLX fp16 (2.1$\times$) and 8.8~s for fp32
+(2.9$\times$), and 12~J against 136~J (11$\times$) and 214~J (17$\times$). The ANE
+rail carries almost all of that energy and the GPU is idle. With
+cached features the ANE extracts them 2.1$\times$ faster at 9$\times$ lower
+energy; after extraction, all paths are identical. Pipelining the ANE with the
+GPU head step adds 1.2--1.6$\times$ over the unpipelined ANE run, most when both stages
+have comparable cost (MLPs, small CNN) and least when the ANE stage dominates (widest CNN, 1.2$\times$). For the small
+MLP (width 512) the ANE gives 1.1$\times$ in time and 2$\times$ in energy, so there is
+a size below which the ANE is not worth using for speed. The MLP heads reach
+only 50--77\% accuracy because the brief digits-0--4 pre-training transfers
+poorly through deep MLP features; their timing and energy are valid, their
+accuracy is not a claim. Two independent runs (timing only, and with power) agree to
+within 1--20\% on every configuration, and the same-commit caveat of
+Section~\ref{sec:limits} applies.
+
 \section{Conclusion}
 We set out to learn what the ANE can do for deep-learning training. Starting
 expectations were: (i)~that frameworks advertised as Apple-accelerated use the
@@ -153,26 +190,31 @@ ANE is the fastest unit & Peak matmul 5.2 TFLOP/s against 6.0 (MLX); fastest onl
 ANE is more efficient & Confirmed: median 2.7~W on the ANE rail; the GPU path costs 1.34$\times$ latency and 2.82$\times$ energy on 31 configurations. \\
 Hybrid step is cheaper & Refreshing Core~ML weights costs 260--320~ms; never beats pure MLX at widths 256--1024. \\
 Hybrid matches fp32 accuracy & Only with a refresh every step (92.98\% against 93.00\%) at about 300$\times$ the energy; refreshing every 5 or 20 steps diverged. \\
+ANE helps when weights are frozen & Confirmed: frozen CNN trunk 2.1--2.4$\times$ faster and 10--11$\times$ less energy than MLX fp16, same accuracy; 1.1$\times$ on the smallest MLP. \\
 \bottomrule\end{tabular}\end{table}
 
 \paragraph{Answer.} On this hardware and software stack the ANE is an efficient
 engine for \emph{fixed-weight, fp16 inference of sufficiently large operators},
-not a training accelerator. It cannot execute a backward pass, and every weight
-update forces a model rebuild that dominates the step. The 4--8$\times$
+not a general training accelerator. It cannot execute a backward pass, and every weight
+update forces a model rebuild that dominates the step. It does help for the
+part of training that does not change: with a frozen convolutional trunk it
+doubled the speed and cut energy by an order of magnitude. The 4--8$\times$
 training speed-up we obtained came from keeping the entire step, including the
 optimiser, native on the GPU with MLX, not from the ANE.
 
 \paragraph{What this does not show.} Larger models, other chips and later OS
 releases may move the placement thresholds and the hybrid's break-even point.
-Uses where weights are frozen, such as a fixed feature extractor feeding a
-trainable head, are consistent with our energy results but were not tested here.
+The frozen-trunk test used one small transfer task (MNIST digits), trunks up to
+about 31M parameters and a hand-written MLX forward that we did not compile with
+\texttt{mx.compile}, so a tuned GPU baseline could narrow the gap. Pre-trained
+models of realistic size (for example vision transformers) are untested.
 Whether private interfaces would change the answer is left open; we used none.
 
-\section{Limitations}
+\section{Limitations}\label{sec:limits}
 Single chip and OS build, one machine; Core~ML placement is a planner decision that may differ
 at run time; no public ANE backward pass exists, so the hybrid path pays a full
 recompilation per weight refresh; results are for small models and
-inference-style forward passes; no private APIs were used. Large batch-8 matmuls (n\,$\ge$\,1024) varied by 1.4--5$\times$ between two full sweeps on the same commit, including pure-CPU rows, so we quote medians over many configurations rather than single large-matmul rows. The environment record of the power runs reports battery power although the machine was reportedly plugged in; we report it as recorded.
+inference-style forward passes; no private APIs were used. Large batch-8 matmuls (n\,$\ge$\,1024) varied by 1.4--5$\times$ between two full sweeps on the same commit, including pure-CPU rows, so we quote medians over many configurations rather than single large-matmul rows. The environment record of the power runs reports battery power although the machine was reportedly plugged in; we report it as recorded. Later runs record AC power and charge level in the environment. The frozen-trunk runs were made before their scripts were committed, so their result files carry a dirty-tree flag.
 
 \bibliographystyle{plain}
 \bibliography{refs}

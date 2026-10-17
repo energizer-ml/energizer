@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as _dt
 import os
 import platform
+import re
 import subprocess
 import sys
 from typing import Any, Dict
@@ -33,6 +34,20 @@ def _version(module: str) -> str:
         return metadata.version(dist)
     except Exception:
         return "unavailable"
+
+
+def _power_state() -> Dict[str, Any]:
+    """AC/battery, charge level and thermal throttling at the time of the run."""
+    batt = _sh("pmset", "-g", "batt")
+    pct = re.search(r"(\d+)%", batt)
+    therm = _sh("pmset", "-g", "therm")
+    return {
+        "on_ac": "AC Power" in batt.splitlines()[0] if batt else None,
+        "battery_pct": int(pct.group(1)) if pct else None,
+        "thermal_note": " | ".join(
+            ln.strip() for ln in therm.splitlines() if "limit" in ln.lower()
+        ),
+    }
 
 
 def capture() -> Dict[str, Any]:
@@ -76,4 +91,5 @@ def capture() -> Dict[str, Any]:
             else ""
         ),
         "low_power_mode": _sh("pmset", "-g").count("lowpowermode         1") > 0,
+        **_power_state(),
     }

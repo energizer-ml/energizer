@@ -215,6 +215,38 @@ def fig_ablation(merge_all):
     save(fig, "ablation.pdf")
 
 
+def fig_frozen(merge_all):
+    d = defaultdict(lambda: defaultdict(lambda: {"s": [], "j": []}))
+    for r in rows("frozen", True):
+        if r.get("status") != "ok":
+            continue
+        e = d[r["config"]][r["path"]]
+        e["s"].append(r["timing"]["median_s"])
+        pr = (r.get("power") or {}).get("net_per_run_mj")
+        if pr:
+            e["j"].append(pr["combined_net_mj"] / 1e3)
+    cfgs = [c for c in d if "mlx_fp16" in d[c] and "coreml_CPU_AND_NE" in d[c]]
+    if not cfgs:
+        return
+    series = [
+        ("mlx_fp32", "MLX fp32 (GPU)"),
+        ("mlx_fp16", "MLX fp16 (GPU)"),
+        ("coreml_CPU_AND_NE", "Core ML (ANE)"),
+        ("coreml_CPU_AND_NE_pipe", "ANE + GPU pipelined"),
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(8, 3.2))
+    w = 0.2
+    for ax, key, ylabel in ((axes[0], "s", "time for 5 epochs (s)"), (axes[1], "j", "energy per run (J)")):
+        for i, (p, lab) in enumerate(series):
+            ys = [median(d[c][p][key]) if d[c][p][key] else 0 for c in cfgs]
+            ax.bar([x + (i - 1.5) * w for x in range(len(cfgs))], ys, w, label=lab)
+        ax.set_xticks(range(len(cfgs)))
+        ax.set_xticklabels([c.replace("-b", "\nb") for c in cfgs], rotation=30, fontsize=6, ha="right")
+        ax.set_yscale("log"), ax.set_ylabel(ylabel)
+    axes[0].legend(fontsize=6)
+    save(fig, "frozen.pdf")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -229,6 +261,7 @@ def main() -> None:
         fig_convergence,
         fig_train_step,
         fig_ablation,
+        fig_frozen,
     ):
         f(not a.latest)
 

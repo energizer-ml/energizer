@@ -11,6 +11,7 @@ whenever a claim changes; every claim must point to a script and a result file.
 | C4 | Core ML exposes no public backward pass, so ANE training needs a workaround. | Literature/docs check | to cite |
 | C5 | MLX-native backward on Energizer trains faster than the NumPy/mixed path. | Implemented, gradient-checked vs PyTorch; timing 4-8x on clean commit (`run_train_step.py`) | `experiments/run_train_step.py`, `tests/test_layers_autograd.py` |
 | C6 | Hybrid (ANE forward, GPU backward) pays off. | Refuted at widths 256-1024: never beats pure MLX; weight refresh 260-320 ms; K>1 diverges | `run_hybrid.py`, `run_convergence.py` |
+| C7 | Frozen ANE trunk + GPU head beats an all-GPU path. | Confirmed: CNN trunks 2.1-2.4x faster, 10-11x less energy than MLX fp16, same accuracy; MLP 1.1-1.9x; pipelining +1.2-1.6x | `run_frozen.py`, `results/frozen/` |
 
 ## Threats to validity (keep honest)
 
