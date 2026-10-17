@@ -216,6 +216,26 @@ at run time; no public ANE backward pass exists, so the hybrid path pays a full
 recompilation per weight refresh; results are for small models and
 inference-style forward passes; no private APIs were used. Large batch-8 matmuls (n\,$\ge$\,1024) varied by 1.4--5$\times$ between two full sweeps on the same commit, including pure-CPU rows, so we quote medians over many configurations rather than single large-matmul rows. The environment record of the power runs reports battery power although the machine was reportedly plugged in; we report it as recorded. Later runs record AC power and charge level in the environment. The frozen-trunk runs were made before their scripts were committed, so their result files carry a dirty-tree flag.
 
+\section{Reproducibility}
+All numbers come from raw JSON-lines files in \texttt{results/}, written by the
+scripts in \texttt{experiments/} (one script per experiment, \texttt{make reproduce}
+runs them all); tables and figures are generated from those files and never
+edited by hand. Each file starts with an environment record: chip, macOS
+build, Python, NumPy, MLX, PyTorch and coremltools versions, git commit and
+dirty flag, AC or battery power, charge level, Low Power Mode and thermal
+limits. The reference machine is an Apple M4 Pro (macOS 26.6.2, build 25G83,
+Python 3.12.12, MLX 0.30.6, coremltools 9.0, PyTorch 2.10.0); the pinned package
+list is in \texttt{environment/requirements.lock}. Seeds are fixed (data order,
+initialisation, pre-training), MNIST is downloaded through torchvision, and timing
+reports medians over repeated runs after untimed warm-up. Power and energy need
+\texttt{powermetrics} (root), subtract a measured idle baseline, and are
+reported per rail. Two runs were discarded because the machine was busy
+(three to four times slower GPU paths); a sanity gate (MLX fp16 4096$^3$ matmul
+near 23~ms) now identifies such runs. Energy and latency cannot be bit-identical
+across runs; we therefore report spread where we have repeats and quote medians
+over many configurations elsewhere. Code, raw results and the build recipe are in
+the repository.
+
 \bibliographystyle{plain}
 \bibliography{refs}
 \end{document}

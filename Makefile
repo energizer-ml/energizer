@@ -2,7 +2,7 @@ PY ?= python
 EXP = experiments
 export PYTHONPATH := $(CURDIR)$(if $(PYTHONPATH),:$(PYTHONPATH),)
 
-.PHONY: ablation test smoke sweep power baselines peak train hybrid convergence frozen tables figures reproduce lint
+.PHONY: paper ablation test smoke sweep power baselines peak train hybrid convergence frozen tables figures reproduce lint
 
 test:
 	$(PY) -m pytest -q tests
@@ -47,6 +47,9 @@ tables:
 
 figures:
 	cd $(EXP) && $(PY) make_figures.py
+
+paper:        # build the PDF and refresh the copy served on the website
+	cd paper && tectonic main.tex && cp main.pdf ../assets/energizer-ane-paper.pdf
 
 reproduce: test sweep baselines peak train ablation hybrid convergence frozen tables figures
 

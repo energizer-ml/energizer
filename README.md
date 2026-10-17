@@ -53,11 +53,13 @@ make smoke        # a few configs, ~minutes, validates the toolchain
 make sweep        # placement / latency sweep (step 3)
 sudo -E make power  # same sweep + powermetrics (needs root)
 make baselines    # MLX vs PyTorch-MPS vs Core ML (step 4)
-make tables       # results/*.jsonl -> paper/tables/*.tex
+make train hybrid convergence frozen   # training experiments
+make tables figures                    # results/*.jsonl -> paper/tables, paper/figures
+make paper                             # build paper/main.pdf (tectonic) and copy it to assets/
 ```
 
 Each result file starts with an `env` record (chip, macOS build, library
-versions, git commit, dirty flag) so a number can always be traced to the setup
+versions, git commit, dirty flag, AC/battery, charge level, thermal limit) so a number can always be traced to the setup
 that produced it. Requirements: Apple Silicon Mac, macOS 14.4+ (for
 `MLComputePlan`), Python 3.10-3.12. Power needs `sudo` for `powermetrics`.
 

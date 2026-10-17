@@ -17,9 +17,11 @@
    ```bash
    sudo -E make power
    sudo -E python experiments/run_convergence.py --power   # energy-to-accuracy
+   sudo -E make frozen-power                               # frozen-trunk energy
    ```
 
-5. Outputs: `results/<experiment>/*.jsonl` (raw), `paper/tables/*.tex`,
+5. Build the paper and refresh the website copy: `make paper`.
+6. Outputs: `results/<experiment>/*.jsonl` (raw), `paper/tables/*.tex`,
    `paper/figures/*.pdf` (derived, git-ignored, always regenerated).
 
 ## Experiment to paper-claim map
@@ -33,9 +35,20 @@
 | `run_ablation.py` | which MLX-native optimization matters; model-size sweep |
 | `run_hybrid.py` | overhead breakdown: compute / transfer / recompilation / update |
 | `run_convergence.py` | correctness (same accuracy) and time- / energy-to-accuracy |
+| `run_frozen.py` | frozen ANE trunk + GPU-trained head: time, energy, accuracy |
 
 ## Variance and warm-up
 
 `timing.measure` does untimed warm-up then >= `iters` timed runs; `timing.repeat`
 repeats whole measurements to report run-to-run spread (`across_std_ms`). Report
 median and spread, never a single run.
+
+## Checklist before quoting a number
+
+- `git_dirty` is `false` and `git_commit` is the commit you cite.
+- `on_ac` is `true`, `low_power_mode` is `false`, `thermal_note` is empty.
+- `python`, `numpy`, `mlx`, `torch`, `coremltools` in the env record match
+  `environment/requirements.lock`.
+- The sanity gate holds on a quiet machine: MLX fp16 4096 matmul, batch 1 is about 23 ms
+  (a 3-4x slower value means the machine was busy; discard the run).
+- Run each experiment at least twice and report the spread.
