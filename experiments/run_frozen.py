@@ -149,7 +149,12 @@ def mlx_trunk_fn(trunk, arch: str, dtype):
         w = layer.weight.detach().numpy()
         if arch == "cnn":
             w = w.transpose(0, 2, 3, 1)  # OIHW -> OHWI (MLX is channels-last)
-        ps.append((mx.array(w).astype(dtype), mx.array(layer.bias.detach().numpy()).astype(dtype)))
+        ps.append(
+            (
+                mx.array(w).astype(dtype),
+                mx.array(layer.bias.detach().numpy()).astype(dtype),
+            )
+        )
     strides = getattr(trunk, "strides", None)
 
     def fwd(x):  # x: (B, 784) float32
@@ -334,14 +339,16 @@ def main() -> int:
         placements = {}
         for dt_name, dt in (("fp32", mx.float32), ("fp16", mx.float16)):
             fwd = mlx_trunk_fn(trunk, arch, dt)
-            paths[f"mlx_{dt_name}"] = (
-                lambda xb, fwd=fwd: (lambda f: (mx.eval(f), f)[1])(fwd(mx.array(xb)))
-            )
+            paths[f"mlx_{dt_name}"] = lambda xb, fwd=fwd: (
+                lambda f: (mx.eval(f), f)[1]
+            )(fwd(mx.array(xb)))
         for units in a.units:
             try:
                 predict, plan = coreml_trunk(trunk, in_shape, batch, units)
             except Exception as e:  # conversion failure is a result, not a crash
-                out.write({"config": name, "path": f"coreml_{units}", "status": f"error: {e}"})
+                out.write(
+                    {"config": name, "path": f"coreml_{units}", "status": f"error: {e}"}
+                )
                 print(f"coreml_{units:<12} conversion failed: {e}")
                 continue
             paths[f"coreml_{units}"] = predict
@@ -401,7 +408,9 @@ def main() -> int:
                     "path": label,
                     "epochs": a.epochs,
                     "placement": placements,
-                    "feature_rel_err": fidelity.get(label.split("_cached")[0].split("_pipe")[0]),
+                    "feature_rel_err": fidelity.get(
+                        label.split("_cached")[0].split("_pipe")[0]
+                    ),
                     "timing": res,
                     "power": power,
                     "status": "ok",

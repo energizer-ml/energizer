@@ -224,7 +224,11 @@ def frozen_table() -> None:
         if not {"mlx_fp16", "coreml_CPU_AND_NE"} <= set(paths):
             continue
         g = lambda p, k: median(paths[p][k]) if paths[p][k] else None
-        f16, ane, pipe = (g("mlx_fp16", "s"), g("coreml_CPU_AND_NE", "s"), g("coreml_CPU_AND_NE_pipe", "s"))
+        f16, ane, pipe = (
+            g("mlx_fp16", "s"),
+            g("coreml_CPU_AND_NE", "s"),
+            g("coreml_CPU_AND_NE_pipe", "s"),
+        )
         e16, eane = g("mlx_fp16", "j"), g("coreml_CPU_AND_NE", "j")
         body.append(
             (
@@ -243,7 +247,18 @@ def frozen_table() -> None:
     if body:
         _tex(
             os.path.join(OUT, "frozen.tex"),
-            ["trunk", "fp32 s", "fp16 s", "ANE s", "ANE+pipe s", "speed", "fp16 J", "ANE J", "energy", "acc"],
+            [
+                "trunk",
+                "fp32 s",
+                "fp16 s",
+                "ANE s",
+                "ANE+pipe s",
+                "speed",
+                "fp16 J",
+                "ANE J",
+                "energy",
+                "acc",
+            ],
             body,
             "Frozen-trunk fine-tuning (5 epochs, online): wall time and idle-subtracted energy per run. "
             "Trunk on the MLX GPU (fp32, fp16) vs Core ML on the ANE (alone, and pipelined with the GPU head step). "
@@ -258,8 +273,14 @@ def frozen_table() -> None:
         a, b = g("mlx_fp16_cached", "s"), g("coreml_CPU_AND_NE_cached", "s")
         ea, eb = g("mlx_fp16_cached", "j"), g("coreml_CPU_AND_NE_cached", "j")
         cached.append(
-            (cfg.replace("-", "{-}"), f"{a:.2f}", f"{b:.2f}", f"{a / b:.1f}$\\times$",
-             f"{ea:.1f}" if ea else "--", f"{eb:.1f}" if eb else "--")
+            (
+                cfg.replace("-", "{-}"),
+                f"{a:.2f}",
+                f"{b:.2f}",
+                f"{a / b:.1f}$\\times$",
+                f"{ea:.1f}" if ea else "--",
+                f"{eb:.1f}" if eb else "--",
+            )
         )
     if cached:
         _tex(

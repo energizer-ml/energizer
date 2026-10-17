@@ -236,12 +236,17 @@ def fig_frozen(merge_all):
     ]
     fig, axes = plt.subplots(1, 2, figsize=(8, 3.2))
     w = 0.2
-    for ax, key, ylabel in ((axes[0], "s", "time for 5 epochs (s)"), (axes[1], "j", "energy per run (J)")):
+    for ax, key, ylabel in (
+        (axes[0], "s", "time for 5 epochs (s)"),
+        (axes[1], "j", "energy per run (J)"),
+    ):
         for i, (p, lab) in enumerate(series):
             ys = [median(d[c][p][key]) if d[c][p][key] else 0 for c in cfgs]
             ax.bar([x + (i - 1.5) * w for x in range(len(cfgs))], ys, w, label=lab)
         ax.set_xticks(range(len(cfgs)))
-        ax.set_xticklabels([c.replace("-b", "\nb") for c in cfgs], rotation=30, fontsize=6, ha="right")
+        ax.set_xticklabels(
+            [c.replace("-b", "\nb") for c in cfgs], rotation=30, fontsize=6, ha="right"
+        )
         ax.set_yscale("log"), ax.set_ylabel(ylabel)
     axes[0].legend(fontsize=6)
     save(fig, "frozen.pdf")
